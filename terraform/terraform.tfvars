@@ -1,7 +1,3 @@
-#do_token = "dop_v1_b84b21fb5f12f407cd996d832984da7a926282fc3c35ad2d83010806d2dc9278"
-# terraform-cloud/terraform.tfvars
-# include = "~/vaults/terraform/secrets.tfvars"
-
 droplets = {
   "koha-saf-prod" = {
     name   = "bib.marxisme.be"
