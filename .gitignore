@@ -1,0 +1,24 @@
+# Terraform state
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform/
+
+# Terraform secrets
+terraform/secrets/
+terraform/secrets/*.tfvars
+
+# Ansible secrets
+ansible/.vault_pass.txt
+
+# Ansible runtime
+ansible/*.retry
+ansible/inventory.ini
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
