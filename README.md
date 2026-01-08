@@ -15,8 +15,14 @@ Om terraform op te zetten moet je eerst de provider installeren
 cd koha-saf/terraform
 sudo terraform init
 
-sudo terraform apply \
-  -var-file=terraform.tfvars \
-  -var-file=secrets/secrets.tfvars
+sudo terraform plan \
+   -var-file=terraform.tfvars \
+   -var-file=secrets/secrets.tfvars
 
+sudo terraform apply \
+   -var-file=terraform.tfvars \
+   -var-file=secrets/secrets.tfvars
+
+
+## ansible
 
