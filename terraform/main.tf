@@ -56,6 +56,15 @@ resource "digitalocean_droplet" "droplet" {
 # =====================
 # OUTPUTS
 # =====================
-output "droplet_ips" {
-  value = { for k, v in digitalocean_droplet.droplet : k => v.ipv4_address }
+
+output "droplets" {
+  value = {
+    for name, droplet in digitalocean_droplet.droplet :
+    name => {
+      name   = droplet.name
+      ip     = droplet.ipv4_address
+      region = droplet.region
+      tags   = droplet.tags
+    }
+  }
 }

@@ -1,0 +1,127 @@
+---
+- name: Install Koha Test Instance
+  hosts: bib-test.marxisme.be
+  become: yes
+  vars:
+    koha_instance: "bib-test"
+    koha_domain: ".marxisme.be"
+    swap_file: "/swapfile"
+    swap_size: "2G"
+    koha_suite: "25.05"
+    koha_gpg: "/etc/apt/keyrings/koha.asc"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - sudo
+          - mariadb-server
+          - apache2
+          - libapache2-mod-perl2
+          - git
+        state: present
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Koha GPG key
+      get_url:
+        url: https://debian.koha-community.org/koha/gpg.asc
+        dest: "{{ koha_gpg }}"
+        mode: '0644'
+
+    - name: Add Koha package source
+      copy:
+        dest: /etc/apt/sources.list.d/koha.sources
+        content: |
+          Types: deb
+          URIs: https://debian.koha-community.org/koha/
+          Suites: {{ koha_suite }}
+          Components: main
+          Signed-By: {{ koha_gpg }}
+
+    - name: Update apt cache after adding Koha repo
+      apt:
+        update_cache: yes
+
+    - name: Install Koha common package
+      apt:
+        name: koha-common
+        state: present
+
+    - name: Check if swap file exists
+      stat:
+        path: "{{ swap_file }}"
+      register: swap_file_stat
+
+    - name: Allocate swap file
+      command: "fallocate -l {{ swap_size }} {{ swap_file }}"
+      when: not swap_file_stat.stat.exists
+
+    - name: Set swap file permissions
+      file:
+        path: "{{ swap_file }}"
+        mode: '0600'
+      when: not swap_file_stat.stat.exists
+
+    - name: Make swap
+      command: "mkswap {{ swap_file }}"
+      when: not swap_file_stat.stat.exists
+
+    - name: Enable swap
+      command: "swapon {{ swap_file }}"
+      ignore_errors: yes
+
+    - name: Add swap to fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "{{ swap_file }} none swap sw 0 0"
+        state: present
+
+    - name: Configure Koha domain
+      lineinfile:
+        path: /etc/koha/koha-sites.conf
+        regexp: '^DOMAIN='
+        line: 'DOMAIN="{{ koha_domain }}"'
+
+    - name: Enable required Apache modules
+      apache2_module:
+        state: present
+        name: "{{ item }}"
+      loop:
+        - rewrite
+        - cgi
+        - headers
+        - proxy_http
+
+    - name: Restart Apache
+      systemd:
+        name: apache2
+        state: restarted
+        daemon_reload: yes
+
+    - name: Create Koha instance
+      command: "koha-create --create-db {{ koha_instance }}"
+      args:
+        creates: "/etc/koha/sites/{{ koha_instance }}.conf"
+
+    - name: Enable Plack for Koha instance
+      command: "koha-plack --enable {{ koha_instance }}"
+
+    - name: Start Plack daemon
+      command: "koha-plack --start {{ koha_instance }}"
+
+    - name: Restart Apache after Koha setup
+      systemd:
+        name: apache2
+        state: restarted

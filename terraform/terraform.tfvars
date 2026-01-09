@@ -17,7 +17,8 @@ droplets = {
         lock_passwd: false
         passwd: "$6$DpwMNhLPWjS.EhFW$uJpKn.ph3f4msYQga94aZPjHK3xtn/gpBskyTnWSJGnxQsCzwTfJ8gXwFjuf.csa3MrQbFAuQs4vM71ZDGMvd."
         ssh_authorized_keys:
-          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA5Scs7UK9JsGYK8Q+Ib/gY71A6Z4HcVG1Nu2AyG/Pv4 ansible-infra
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlQ2yd4L+uqNDbks1AeHmgohojjprVks1QJlPd3DnhL ansible
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK/xoi0JMQiK4Qp2vnE4vCYTlLXX3GPA6NpAzgMzdwuz sander@Elss-Laptop.local
           - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAKMdO3JrvmB4g/YTD9yXEq09LhySJ5itMvliMVhq1RS sander@liquid-design.be
   EOF
   }
@@ -41,7 +42,8 @@ droplets = {
         lock_passwd: false
         passwd: "$6$DpwMNhLPWjS.EhFW$uJpKn.ph3f4msYQga94aZPjHK3xtn/gpBskyTnWSJGnxQsCzwTfJ8gXwFjuf.csa3MrQbFAuQs4vM71ZDGMvd."
         ssh_authorized_keys:
-          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA5Scs7UK9JsGYK8Q+Ib/gY71A6Z4HcVG1Nu2AyG/Pv4 ansible-infra
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMlQ2yd4L+uqNDbks1AeHmgohojjprVks1QJlPd3DnhL ansible
+          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK/xoi0JMQiK4Qp2vnE4vCYTlLXX3GPA6NpAzgMzdwuz sander@Elss-Laptop.local
           - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAKMdO3JrvmB4g/YTD9yXEq09LhySJ5itMvliMVhq1RS sander@liquid-design.be
   EOF
   }

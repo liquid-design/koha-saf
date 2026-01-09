@@ -25,4 +25,9 @@ sudo terraform apply \
 
 
 ## ansible
+maak aan nopass ansible user aan 
+ssh-keygen -t ed25519 -f ~/.ssh/ansible_nopass -N ""
+zet de ansible_nopass.pub in je terraform.tfvars
 
+Er word gebruik gemaakt van dynamic inventory door ansible/inventroy/terraform.py
+ansible-inventory --list
