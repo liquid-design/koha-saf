@@ -1,3 +1,4 @@
+# refactored version of koha-test-onepager
 - name: Koha TEST
   hosts: test
   become: true
