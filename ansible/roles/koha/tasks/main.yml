@@ -1,0 +1,4 @@
+---
+- import_tasks: config.yml
+- import_tasks: apache.yml
+- import_tasks: instance.yml

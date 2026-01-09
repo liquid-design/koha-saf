@@ -1,0 +1,6 @@
+---
+- name: Configure Koha domain
+  ansible.builtin.lineinfile:
+    path: /etc/koha/koha-sites.conf
+    regexp: '^DOMAIN='
+    line: 'DOMAIN="{{ koha_domain }}"'

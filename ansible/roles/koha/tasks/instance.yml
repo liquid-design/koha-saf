@@ -1,0 +1,12 @@
+---
+- name: Create Koha instance
+  ansible.builtin.command: "koha-create --create-db {{ koha_instance }}"
+  args:
+    creates: "/etc/koha/sites/{{ koha_instance }}"
+
+- name: Enable Plack
+  ansible.builtin.command: "koha-plack --enable {{ koha_instance }}"
+
+- name: Start Plack
+  ansible.builtin.command: "koha-plack --start {{ koha_instance }}"
+  notify: Restart Apache
