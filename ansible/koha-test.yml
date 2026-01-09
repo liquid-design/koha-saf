@@ -1,20 +1,13 @@
 - name: Koha TEST
-  hosts: tag_test:&tag_koha
+  hosts: test
   become: true
 
   vars:
-    koha_instance: "bib"
+    koha_instance: "bib-test"
     koha_domain: ".marxisme.be"
     koha_suite: "25.05"
-
-    apt_packages:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - sudo
-      - apache2
-      - mariadb-server
-      - koha-common
+    swap_file: "/swapfile"
+    swap_size: "2G"
 
     apt_gpg_keys:
       - url: https://debian.koha-community.org/koha/gpg.asc
@@ -28,6 +21,20 @@
           Suites: {{ koha_suite }}
           Components: main
           Signed-By: /etc/apt/keyrings/koha.asc
+
+    apt_packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - sudo
+      - apache2
+
+    # Koha packages in de juiste volgorde
+    koha_packages_db:
+      - mariadb-server
+
+    koha_packages_pre_db:
+      - koha-common
 
   roles:
     - common_apt

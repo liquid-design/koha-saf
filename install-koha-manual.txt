@@ -1,0 +1,142 @@
+https://wiki.koha-community.org/wiki/Koha_on_Debian_and_Ubuntu
+The package source list is about the 25.05 release:
+
+extra info Conventions:
+Run the commands that are in a box and start with $ at the command line prompt for your server (don't include the '$'):
+$ a_command
+Run the commands that are in a box and start with # at the command line prompt for your server as root (don't include the '#'):
+# a_command
+
+step 1
+login as ssh -i ~/.ssh/ansible_nopass ansible@165.232.89.74
+
+step 2
+#sudo su
+You are required to change your password immediately (administrator enforced).
+Changing password for root.
+Current password: 
+New password: 
+Retype new password: 
+
+step 3
+# apt update
+# apt install apt-transport-https ca-certificates curl sudo
+# mkdir -p --mode=0755 /etc/apt/keyrings
+# curl -fsSL https://debian.koha-community.org/koha/gpg.asc -o /etc/apt/keyrings/koha.asc
+
+# tee /etc/apt/sources.list.d/koha.sources <<EOF
+Types: deb
+URIs: https://debian.koha-community.org/koha/
+Suites: 25.05
+Components: main
+Signed-By: /etc/apt/keyrings/koha.asc 
+EOF
+
+step 4
+To update the packages
+# apt update
+
+step 5
+# apt install koha-common
+
+step 6
+Install the database
+# apt install mariadb-server
+
+stap 7
+# Maak het swapbestand van 2GB aan
+sudo fallocate -l 2G /swapfile
+
+# Zet de juiste permissies (alleen root kan lezen/schrijven)
+sudo chmod 600 /swapfile
+
+# Formatteer het bestand als swap
+sudo mkswap /swapfile
+
+# Activeer de swapfile
+sudo swapon /swapfile
+
+# Controleer dat swap actief is
+sudo swapon --show
+free -h
+
+# Voeg toe aan /etc/fstab zodat swap bij herstart automatisch geladen wordt
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+
+step 8
+Configure the default Apache settings for Koha instances
+vi /etc/koha/koha-sites.conf
+only change DOMAIN variable to:
+DOMAIN=".marxisme.be"
+
+step 9
+Set up Apache
+Koha requires mod_rewrite to be enabled within Apache in order to run.
+Typically this can be enabled with:
+
+# rm /etc/apache2/sites-available/default-ssl.conf 
+# rm /etc/apache2/sites-available/000-default.conf 
+# a2enmod rewrite cgi headers proxy_http
+# systemctl restart apache2
+
+step 9
+Create a Koha instance
+# koha-create --create-db bib
+terminal output
+Koha instance is empty, no staff user created
+Starting Koha worker daemon for bib (long_tasks):.
+Starting Koha indexing daemon for bib:.
+
+# koha-plack --enable bib
+terminal output
+Plack enabled for bib OPAC
+Plack enabled for bib Intranet
+
+# koha-plack --start bib
+terminal output
+Starting Plack daemon for bib
+.
+# systemctl restart apache2
+
+
+step 10
+Access the web interface
+http://bib-intra.marxisme.be/ - redirect to
+http://bib-intra.marxisme.be/cgi-bin/koha/installer/install.pl
+
+step 11 
+root@bib:/home/ansible# koha-passwd bib
+terminal output
+user
+pass
+
+step 12
+Web installer configuration
+selected language = en
+
+Database settings:
+Database type: mysql
+Database name: koha_bib
+Database host: localhost
+Database port: 3306 (probably okay if blank)
+Database user: koha_bib
+
+Install basic configuration settings 
+- Selecting default settings
+
+Select all options except 
+- Sample libraries
+- Sample patrons
+- Sample news items
+- Sample quotes
+- Sample holidays (tenzij je snel wil testen)
+
+
+At the Onboarding part where is this config file?
+# Create a library
+# Create a patron category
+# Create Koha administrator patron
+# Create a new item type
+# Create a new circulation rule
+

@@ -11,6 +11,13 @@
     koha_gpg: "/etc/apt/keyrings/koha.asc"
 
   tasks:
+    - name: Set temporary root password
+      user:
+        name: root
+        password: "{{ 'TemporaryPassword123!' | password_hash('sha512') }}"
+      # changed_when: false voorkomt dat Ansible altijd zegt dat iets veranderd is
+      changed_when: false
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -22,10 +29,6 @@
           - ca-certificates
           - curl
           - sudo
-          - mariadb-server
-          - apache2
-          - libapache2-mod-perl2
-          - git
         state: present
 
     - name: Create keyrings directory
@@ -33,6 +36,12 @@
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
+
+    - name: Ensure Ansible remote tmp exists
+      file:
+        path: /root/.ansible/tmp
+        state: directory
+        mode: '0700'
 
     - name: Download Koha GPG key
       get_url:
@@ -54,11 +63,6 @@
       apt:
         update_cache: yes
 
-    - name: Install Koha common package
-      apt:
-        name: koha-common
-        state: present
-
     - name: Check if swap file exists
       stat:
         path: "{{ swap_file }}"
@@ -78,15 +82,35 @@
       command: "mkswap {{ swap_file }}"
       when: not swap_file_stat.stat.exists
 
+    - name: Check if swap is active
+      command: "swapon --show --noheadings --raw | grep '^{{ swap_file }}'"
+      register: swap_active
+      ignore_errors: yes
+      changed_when: false
+
     - name: Enable swap
       command: "swapon {{ swap_file }}"
-      ignore_errors: yes
+      when: swap_active.rc != 0
 
     - name: Add swap to fstab
       lineinfile:
         path: /etc/fstab
         line: "{{ swap_file }} none swap sw 0 0"
         state: present
+
+    - name: Install Koha common package
+      apt:
+        name: koha-common
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Install Mariadb Server package
+      apt:
+        name: mariadb-server
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
 
     - name: Configure Koha domain
       lineinfile:
@@ -113,7 +137,7 @@
     - name: Create Koha instance
       command: "koha-create --create-db {{ koha_instance }}"
       args:
-        creates: "/etc/koha/sites/{{ koha_instance }}.conf"
+        creates: "/etc/koha/sites/{{ koha_instance }}"
 
     - name: Enable Plack for Koha instance
       command: "koha-plack --enable {{ koha_instance }}"

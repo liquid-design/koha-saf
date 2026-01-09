@@ -24,6 +24,17 @@ sudo terraform apply \
    -var-file=secrets/secrets.tfvars
 
 
+
+### Selectief droplet verwijderen
+Eerst status bebijken
+sudo terraform state list
+
+Daarna selecteren en destroyen
+sudo terraform destroy \
+  -var-file=terraform.tfvars \
+  -var-file=secrets/secrets.tfvars \
+  -target='digitalocean_droplet.droplet["koha-saf-test"]'
+
 ## ansible
 maak aan nopass ansible user aan 
 ssh-keygen -t ed25519 -f ~/.ssh/ansible_nopass -N ""

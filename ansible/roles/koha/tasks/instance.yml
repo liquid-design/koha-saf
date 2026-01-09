@@ -6,7 +6,11 @@
 
 - name: Enable Plack
   ansible.builtin.command: "koha-plack --enable {{ koha_instance }}"
+  args:
+    creates: "/etc/koha/sites/{{ koha_instance }}/plack_enabled"
 
 - name: Start Plack
   ansible.builtin.command: "koha-plack --start {{ koha_instance }}"
+  args:
+    creates: "/etc/koha/sites/{{ koha_instance }}/plack_running"
   notify: Restart Apache
