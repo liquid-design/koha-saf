@@ -1,0 +1,378 @@
+# Dit moets worden uitgevoerd sudo apt install -y python3-mysqldb
+# Correctie moet dit zijn sudo apt install -y python3-pymysql
+# ansible-playbook koha-test-post-installer.yml --tags setup
+
+# Enkel DB structuur
+# ansible-playbook koha-test-post-installer.yml --tags kohastructure
+
+# Alleen YAML laden
+# ansible-playbook koha-test-post-installer.yml --tags mandatory_yaml
+
+# De SQL laden
+# ansible-playbook koha-test-post-installer.yml --tags mandatory_sql
+
+# Enkel MARC frameworks
+# ansible-playbook koha-test-post-installer.yml --tags marc21_mandatory
+
+# Alleen installer skip
+# ansible-playbook koha-test-post-installer.yml --tags version
+
+# Alleen zebra
+# ansible-playbook koha-test-post-installer.yml --tags zebra_rebuild
+
+
+---
+- name: Koha MARC21 post-install bootstrap (iteratief)
+  hosts: test
+  become: true
+
+  vars:
+    koha_instance: "bib-test"
+    koha_domain: ".marxisme.be"
+    db_name: koha_bib-test
+    db_user: koha_bib-test
+    db_pass: "d3`#pO9@*OT9dA|5"
+
+    library_code: SAF
+    library_name: "Steunpunt Antifacisme"
+
+    admin_user: kohaadmin
+    admin_cardnumber: "1867"
+    admin_surname: Marx
+    admin_firstname: Karl
+    admin_category: S
+
+    koha_paths:
+      structure: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/kohastructure.sql
+      mandatory_sql: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/mandatory
+      mandatory_yaml: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory
+      optional_yaml: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional
+      marc21: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21
+
+    mandatory_sql_files:
+      - sysprefs.sql
+      - subtag_registry.sql
+      - auth_val_cat.sql
+      - message_transport_types.sql
+      - sample_notices_message_attributes.sql
+      - sample_notices_message_transports.sql
+      - keyboard_shortcuts.sql
+      - userflags.sql
+      - userpermissions.sql
+      - audio_alerts.sql
+
+    mandatory_yaml_files:
+      - account_credit_types.yml
+      - account_debit_types.yml
+      - auth_values.yml
+      - class_sources.yml
+      - patron_restriction_types.yml
+      - sample_frequencies.yml
+      - sample_notices.yml
+      - sample_numberpatterns.yml
+
+    marc21_mandatory_yaml:
+      - authorities_normal_marc21.yml
+      - marc21_framework_DEFAULT.yml
+
+    marc21_optional_yaml:
+      - marc21_default_matching_rules.yml
+      - marc21_sample_fastadd_framework.yml
+      - marc21_simple_bib_frameworks.yml
+
+
+    circ_rule_max_checkouts: 20
+    circ_rule_loan_period: 14
+    circ_rule_renewals_allowed: 2
+    circ_rule_holds_daily: 5
+    circ_rule_holds_per_record: 3
+    circ_rule_onshelf: 1
+
+
+
+  tasks:
+
+  # --------------------------------------------------
+  # 0️⃣ Sanity & zichtbaarheid
+  # --------------------------------------------------
+  - name: Show Koha instance & DB
+    debug:
+      msg:
+        - "Koha instance: {{ koha_instance }}"
+        - "Database: {{ db_name }}"
+    tags: sanity
+
+
+  # --------------------------------------------------
+  # 0️⃣ Eerste: Python3 en PyMySQL installeren
+  # --------------------------------------------------
+  - name: Ensure python3 is installed and set for Ansible
+    apt:
+      name: python3
+      state: present
+      update_cache: yes
+    tags: setup
+
+  - name: Set Python3 interpreter for Ansible
+    set_fact:
+      ansible_python_interpreter: /usr/bin/python3
+    tags: setup
+
+  - name: Install PyMySQL for MySQL modules
+    apt:
+      name: python3-pymysql
+      state: present
+      update_cache: yes
+    tags: setup
+
+  # --------------------------------------------------
+  # 1️⃣ Kohastructure
+  # --------------------------------------------------
+  - name: Import kohastructure.sql
+    community.mysql.mysql_db:
+      name: "{{ db_name }}"
+      state: import
+      target: "{{ koha_paths.structure }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+    tags: kohastructure
+
+  # --------------------------------------------------
+  # 2️⃣ Mandatory SQL – één voor één
+  # --------------------------------------------------
+  - name: Import mandatory SQL file
+    community.mysql.mysql_db:
+      name: "{{ db_name }}"
+      state: import
+      target: "{{ koha_paths.mandatory_sql }}/{{ item }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+    loop: "{{ mandatory_sql_files }}"
+    loop_control:
+      label: "{{ item }}"
+    tags: mandatory_sql
+
+  # --------------------------------------------------
+  # 3️⃣ Mandatory YAML – algemeen
+  # --------------------------------------------------
+  - name: Load mandatory YAML (general)
+    ansible.builtin.command:
+      argv:
+        - koha-shell
+        - "{{ koha_instance }}"
+        - -c
+        - "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file {{ koha_paths.mandatory_yaml }}/{{ item }}"
+    loop: "{{ mandatory_yaml_files }}"
+    loop_control:
+      label: "{{ item }}"
+    changed_when: false
+    tags: mandatory_yaml
+
+  # --------------------------------------------------
+  # 4️⃣ MARC21 mandatory YAML
+  # --------------------------------------------------
+  - name: Load MARC21 mandatory YAML
+    ansible.builtin.command:
+      argv:
+        - koha-shell
+        - "{{ koha_instance }}"
+        - -c
+        - "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file {{ koha_paths.marc21 }}/mandatory/{{ item }}"
+    loop: "{{ marc21_mandatory_yaml }}"
+    loop_control:
+      label: "{{ item }}"
+    changed_when: false
+    tags: marc21_mandatory
+
+  # --------------------------------------------------
+  # 5️⃣ MARC21 optional YAML
+  # --------------------------------------------------
+  - name: Load MARC21 optional YAML
+    ansible.builtin.command:
+      argv:
+        - koha-shell
+        - "{{ koha_instance }}"
+        - -c
+        - "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file {{ koha_paths.marc21 }}/optional/{{ item }}"
+    loop: "{{ marc21_optional_yaml }}"
+    loop_control:
+      label: "{{ item }}"
+    changed_when: false
+    tags: marc21_optional
+
+  # --------------------------------------------------
+  # 6️⃣ Branch & categorie
+  # --------------------------------------------------
+  - name: Create library branch
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO branches (branchcode, branchname, pickup_location, public)
+        VALUES ('{{ library_code }}','{{ library_name }}',1,1);
+    tags: branch
+
+  - name: Create staff patron category
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO categories
+        (categorycode, description, enrolmentperiod, category_type)
+        VALUES ('S','Staff',99,'S');
+    tags: patron_category
+
+  # --------------------------------------------------
+  # 7️⃣ Admin gebruiker
+  # --------------------------------------------------
+  - name: Create admin borrower
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO borrowers
+        (cardnumber, surname, firstname, branchcode, categorycode, userid, auth_method, password, flags)
+        VALUES
+        ('{{ admin_cardnumber }}','{{ admin_surname }}','{{ admin_firstname }}',
+         '{{ library_code }}','{{ admin_category }}','{{ admin_user }}',
+         'password',
+         '$2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q',
+         1);
+    tags: admin_user
+
+  # --------------------------------------------------
+  # 8️⃣ System preferences (installer skip)
+  # --------------------------------------------------
+  - name: Force Koha Version (skip webinstaller)
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT INTO systempreferences (variable,value)
+        VALUES ('Version','25.0506000')
+        ON DUPLICATE KEY UPDATE value='25.0506000';
+    tags: version
+
+  - name: Set MARC flavour
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO systempreferences (variable,value)
+        VALUES ('marcflavour','MARC21');
+    tags: marcflavour
+
+  # --------------------------------------------------
+  # 9️⃣ Index & services
+  # --------------------------------------------------
+  - name: Rebuild Zebra index
+    command: koha-rebuild-zebra -f -a -b -v {{ koha_instance }}
+    tags: zebra_rebuild
+
+  - name: Restart Zebra
+    command: koha-zebra --restart {{ koha_instance }}
+    tags: zebra_restart
+
+  - name: Restart Plack
+    command: koha-plack --restart {{ koha_instance }}
+    tags: plack_restart
+
+
+# De branch instellen
+# ansible-playbook koha-test-post-installer.yml --tags branch
+
+# Enkel patron_category
+# ansible-playbook koha-test-post-installer.yml --tags patron_category
+
+# De admin user kan niet ontbreken
+# ansible-playbook koha-test-post-installer.yml --tags admin_user
+
+# Culation over leen data
+# ansible-playbook koha-test-post-installer.yml --tags circulation_rules
+
+# Over het framework
+# ansible-playbook koha-test-post-installer.yml --tags biblio_framework
+
+
+
+# ===================================================
+# 7️⃣ Eigen inserts (branches, patron, circulation rules, biblio frameworks)
+# ===================================================
+  - name: Create library branch
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO branches (branchcode, branchname, pickup_location, public)
+        VALUES ('{{ library_code }}','{{ library_name }}',1,1);
+    tags: branch
+
+  - name: Create staff patron category
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO categories
+        (categorycode, description, enrolmentperiod, overduenoticerequired, reservefee, hidelostitems, category_type, default_privacy, checkprevcheckout, can_place_ill_in_opac, can_be_guarantee, enforce_expiry_notice)
+        VALUES
+        ('S','Staff',99,0,0,0,'S','default','inherit',1,0,0);
+    tags: patron_category
+
+  - name: Create admin borrower
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO borrowers
+        (cardnumber, surname, firstname, branchcode, categorycode, userid, auth_method, password, flags)
+        VALUES
+        ('{{ admin_cardnumber }}','{{ admin_surname }}','{{ admin_firstname }}',
+         '{{ library_code }}','{{ admin_category }}','{{ admin_user }}',
+         'password',
+         '$2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q',
+         1);
+    tags: admin_user
+
+  - name: Set circulation rules
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO circulation_rules (rule_name, rule_value)
+        VALUES
+        ('maxissueqty', '{{ circ_rule_max_checkouts }}'),
+        ('issuelength', '{{ circ_rule_loan_period }}'),
+        ('renewalsallowed', '{{ circ_rule_renewals_allowed }}'),
+        ('holds_per_day', '{{ circ_rule_holds_daily }}'),
+        ('holds_per_record', '{{ circ_rule_holds_per_record }}'),
+        ('onshelfholds', '{{ circ_rule_onshelf }}');
+    tags: circulation_rules
+
+  - name: Insert biblio frameworks
+    community.mysql.mysql_query:
+      login_db: "{{ db_name }}"
+      login_user: "{{ db_user }}"
+      login_password: "{{ db_pass }}"
+      query: |
+        INSERT IGNORE INTO biblio_framework (frameworkcode, frameworktext)
+        VALUES
+        ('ACQ', 'Acquisition framework'),
+        ('AR', 'Models'),
+        ('BKS', 'Books, Booklets, Workbooks'),
+        ('CF', 'CD-ROMs, DVD-ROMs, General Online Resources'),
+        ('FA', 'Fast Add Framework'),
+        ('IR', 'Binders'),
+        ('KT', 'Kits'),
+        ('SER', 'Serials'),
+        ('SR', 'Audio Cassettes, CDs'),
+        ('VR', 'DVDs, VHS');
+    tags: biblio_framework
