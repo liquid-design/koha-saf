@@ -1,3 +1,18 @@
+# ============================================================================
+# ROLE: koha_postinstall_db
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Initialiseert Koha database-inhoud die normaal via de webinstaller
+# wordt toegepast.
+#
+# Doet wel:
+# - uitvoeren van SQL of schema-gerelateerde initialisatie
+#
+# Doet niet:
+# - business logica
+# - gebruikers- of circulation instellingen
+# ============================================================================
+
 - name: Assert Koha runtime facts exist
   assert:
     that:

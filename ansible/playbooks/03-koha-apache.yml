@@ -1,5 +1,22 @@
+# ============================================================================
+# 03-koha-apache.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Configureren van Apache webserver voor Koha.
+#
+# Scope:
+# - Apache vhosts
+# - SSL / poortconfiguratie
+#
+# Buiten scope:
+# - Koha instance
+# - database configuratie
+# ============================================================================
+
 - name: Prepare Apache for Koha
-  hosts: test
+  hosts: all
   become: true
   roles:
+
+    # Richt Apache in zodat Koha instances correct ontsloten worden
     - koha_apache

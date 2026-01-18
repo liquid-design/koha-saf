@@ -1,6 +1,25 @@
+# ============================================================================
+# 02-koha-install.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Installeren van Koha software via officiële repositories.
+#
+# Scope:
+# - toevoegen Koha apt repository
+# - installatie Koha packages
+#
+# Buiten scope:
+# - Apache configuratie
+# - Koha instance creatie
+# ============================================================================
+
 - name: Install Koha software
-  hosts: test
+  hosts: all
   become: true
   roles:
+
+    # Configureert officiële Koha repository en signing keys
     - koha_repo
+
+    # Installeert Koha packages zonder instance-specifieke configuratie
     - koha_install

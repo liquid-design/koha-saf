@@ -1,3 +1,17 @@
+# ============================================================================
+# ROLE: koha_repo
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Configureert de officiële Koha APT repository.
+#
+# Doet wel:
+# - toevoegen repository
+# - importeren signing keys
+#
+# Doet niet:
+# - installatie van Koha packages
+# ============================================================================
+
 - name: Ensure apt keyrings directory exists
   file:
     path: /etc/apt/keyrings

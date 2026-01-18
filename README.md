@@ -1,361 +1,198 @@
-# README – Koha Project
+# README – Koha SAF Project
 
+## 1. Overzicht
 
-### koha-saf
-Inleiding bibliotheek
+Dit repository bevat de **Infrastructure as Code (Terraform)** en **Configuration Management (Ansible)** voor het automatisch uitrollen en configureren van een **Koha ILS-omgeving**.
 
-## Git
-clone eerst de repo op je machine
-wijzig voor terraform/terraform.tfvars de ssh keys van je huidige host 
-Daarna genereer een key voor de ansible user op je machine 
-Verzin een wachtwoord voor je ansible user en hash dat met SHA512
-Zet deze in je terraform/terraform.tfvars
+De huidige README reflecteert de **gerefactorde architectuur** zoals aanwezig in deze repository en vervangt eerdere documentatie.
 
+Doelstellingen:
 
-## terraform
-Installeer terraform op je mac met brew install terraform
-Om terraform op te zetten moet je eerst de provider installeren
+* herhaalbare en voorspelbare Koha-installaties
+* duidelijke lifecycle-fases
+* strikte scheiding tussen infrastructuur, techniek en bibliotheeklogica
+* geschikt voor teamgebruik en verdere CI/CD-integratie
 
-cd koha-saf/terraform
-sudo terraform init
+---
 
-sudo terraform plan \
-   -var-file=terraform.tfvars \
-   -var-file=secrets/secrets.tfvars
+## 2. Repository-structuur (high level)
 
-sudo terraform apply \
-   -var-file=terraform.tfvars \
-   -var-file=secrets/secrets.tfvars
+```text
+koha-saf/
+├── terraform/
+│   ├── terraform.tfvars
+│   ├── secrets/
+│   └── *.tf
+│
+├── ansible/
+│   ├── ansible.cfg
+│   ├── inventory/
+│   │   └── group_vars/
+│   │       └── all/
+│   │           └── *.yml
+│   │
+│   ├── playbooks/
+│   │   ├── 01-bootstrap.yml
+│   │   ├── 02-koha-install.yml
+│   │   ├── 03-koha-apache.yml
+│   │   ├── 04-koha-instance.yml
+│   │   ├── 05-koha-config.yml
+│   │   ├── 06-koha-postinstall.yml
+│   │   ├── 07-koha-business.yml
+│   │   └── 08-koha-finalize.yml
+│   │
+│   └── roles/
+│       ├── system_apt/
+│       ├── system_swap/
+│       ├── system_hardening_users/
+│       ├── locale_fix/
+│       ├── koha_repo/
+│       ├── koha_install/
+│       ├── koha_apache/
+│       ├── koha_instance/
+│       ├── koha_config/
+│       ├── koha_persist_facts/
+│       ├── koha_postinstall_db/
+│       ├── koha_postinstall_python/
+│       ├── koha_postinstall_yaml/
+│       ├── koha_business_libraries/
+│       ├── koha_business_authorised_values/
+│       ├── koha_business_admin/
+│       ├── koha_business_circulation/
+│       └── koha_finalize/
+│
+└── README.md
+```
 
+---
 
+## 3. Terraform
 
-### Selectief droplet verwijderen
-Eerst status bebijken
-sudo terraform state list
+Terraform is verantwoordelijk voor:
 
-Daarna selecteren en destroyen
-sudo terraform destroy \
+* provisioning van infrastructuur (bijv. DigitalOcean droplets)
+* netwerk- en basis-OS-instellingen
+
+### Stappen
+
+```bash
+cd terraform
+terraform init
+terraform plan \
+  -var-file=terraform.tfvars \
+  -var-file=secrets/secrets.tfvars
+terraform apply \
+  -var-file=terraform.tfvars \
+  -var-file=secrets/secrets.tfvars
+```
+
+Selectief verwijderen van resources:
+
+```bash
+terraform state list
+terraform destroy \
   -var-file=terraform.tfvars \
   -var-file=secrets/secrets.tfvars \
   -target='digitalocean_droplet.droplet["koha-saf-test"]'
-
-
-## 1. Doel van dit project
-
-Dit Ansible-project automatiseert de **volledige installatie, configuratie en initiële functionele inrichting van Koha** op een consistente, herhaalbare en beheerbare manier.
-
-Het project is expliciet ontworpen voor:
-
-* **lange-termijn onderhoud**
-* **teamgebruik**
-* **duidelijke scheiding tussen techniek en bibliotheeklogica**
-* **voorbereiding op Vault, security en CI/CD**
-
-Functionele correctheid van Koha wordt als gegeven beschouwd; dit project richt zich op **structuur, beheersbaarheid en transparantie**.
-
----
-
-## 2. Architectuur-overzicht
-
-### 2.1 Hoofdconcept
-
-De architectuur is **lifecycle-gedreven**:
-
-* *Playbooks* beschrijven **wanneer** iets gebeurt
-* *Rollen* beschrijven **wat** er gebeurt
-* *Variabelen* beschrijven **hoe** het systeem wordt ingevuld
-
-Er is een expliciete scheiding tussen:
-
-* systeemconfiguratie
-* Koha-techniek
-* Koha-installatie
-* Koha-installer
-* Koha business-/bibliotheeklogica
-
----
-
-### 2.2 Projectstructuur
-
-```text
-ansible/
-├── ansible.cfg
-├── inventory/
-│   └── terraform.py
-│
-├── playbooks/
-│   ├── 01-bootstrap.yml
-│   ├── 02-koha-install.yml
-│   ├── 03-koha-instance.yml
-│   ├── 04-koha-config.yml
-│   ├── 05-koha-web.yml
-│   ├── 06-koha-postinstall.yml
-│   └── 07-koha-business.yml
-│
-├── roles/
-│   ├── system_apt/
-│   ├── system_swap/
-│   ├── koha_repo/
-│   ├── koha_install/
-│   ├── koha_instance/
-│   ├── koha_config/
-│   ├── koha_apache/
-│   ├── koha_postinstall_python/
-│   ├── koha_postinstall_db/
-│   ├── koha_postinstall_yaml/
-│   ├── koha_business_libraries/
-│   ├── koha_business_authorised_values/
-│   ├── koha_business_admin/
-│   └── koha_business_circulation/
-│
-├── group_vars/
-│   ├── all.yml
-│   ├── test.yml
-│   └── prod.yml
-│
-└── host_vars/
-    └── (optioneel)
 ```
 
 ---
 
-## 3. Designprincipes
+## 4. Ansible – Architectuur
 
-### 3.1 Eén rol = één verantwoordelijkheid
+De Ansible-architectuur is **lifecycle-gedreven**:
 
-Elke rol heeft een **enkelvoudig doel**, bijvoorbeeld:
+* *Playbooks* bepalen de volgorde
+* *Rollen* hebben één duidelijke verantwoordelijkheid
+* *Variabelen* bepalen de inhoud
 
-* `koha_install`: alleen packages
-* `koha_instance`: alleen instance lifecycle
-* `koha_business_circulation`: alleen circulation rules
+### Kernprincipes
 
-Dit maakt:
-
-* hergebruik mogelijk
-* debugging eenvoudiger
-* uitbreiding veilig
+* één rol = één taak
+* geen businesslogica in technische rollen
+* idempotente en herhaalbare runs
 
 ---
 
-### 3.2 Scheiding techniek vs. business
-
-| Laag      | Voorbeelden                        |
-| --------- | ---------------------------------- |
-| Technisch | OS, Apache, Koha packages          |
-| Installer | SQL-structuur, YAML loaders        |
-| Business  | Libraries, admin user, circulation |
-
-Functionele wijzigingen aan de bibliotheekconfiguratie vereisen **geen herinstallatie** van Koha.
-
----
-
-### 3.3 Variabelenstrategie
-
-* **Defaults**: in roles (veilig, generiek)
-* **Configuratie**: in `group_vars`
-* **Secrets**: voorlopig plain-text, later Vault
-
-Geen hardcoded waarden in taken.
-
----
-
-## 4. Lifecycle en uitvoervolgorde
+## 5. Playbook lifecycle
 
 De playbooks moeten **altijd in deze volgorde** worden uitgevoerd:
 
-1. `01-bootstrap.yml`
-   OS-basis (APT, swap)
+1. **01-bootstrap.yml**
+   Basis OS-configuratie
 
-2. `02-koha-install.yml`
-   Koha repository en packages
+   * `system_apt`
+   * `system_swap`
+   * `locale_fix`
+   * `system_hardening_users`
 
-3. `03-koha-instance.yml`
-   Koha instance + database
+2. **02-koha-install.yml**
+   Installatie van Koha packages
 
-4. `04-koha-config.yml`
+   * `koha_repo`
+   * `koha_install`
+
+3. **03-koha-apache.yml**
+   Webserver configuratie
+
+   * `koha_apache`
+
+4. **04-koha-instance.yml**
+   Koha instance en database
+
+   * `koha_instance`
+   * `koha_persist_facts`
+
+5. **05-koha-config.yml**
    Technische Koha configuratie
 
-5. `05-koha-web.yml`
-   Apache configuratie
+   * `koha_config`
 
-6. `06-koha-postinstall.yml`
-   Koha installer (SQL + YAML)
+6. **06-koha-postinstall.yml**
+   Installerfase (initiële vulling)
 
-7. `07-koha-business.yml`
-   Bibliotheeklogica (libraries, admin, circulation)
+   * `koha_postinstall_db`
+   * `koha_postinstall_python`
+   * `koha_postinstall_yaml`
 
-Elke stap bouwt **onvoorwaardelijk voort op de vorige**.
+7. **07-koha-business.yml**
+   Bibliotheeklogica
 
----
+   * `koha_business_libraries`
+   * `koha_business_authorised_values`
+   * `koha_business_admin`
+   * `koha_business_circulation`
 
-## 5. Rollen per fase (samenvatting)
+8. **08-koha-finalize.yml**
+   Afronding en validatie
 
-### 5.1 Bootstrap
-
-* `system_apt`
-* `system_swap`
-
-### 5.2 Koha installatie
-
-* `koha_repo`
-* `koha_install`
-
-### 5.3 Instance
-
-* `koha_instance`
-
-### 5.4 Web
-
-* `koha_apache`
-
-### 5.5 Post-install
-
-* `koha_postinstall_python`
-* `koha_postinstall_db`
-* `koha_postinstall_yaml`
-
-### 5.6 Business
-
-* `koha_business_libraries`
-* `koha_business_authorised_values`
-* `koha_business_admin`
-* `koha_business_circulation`
+   * `koha_finalize`
 
 ---
 
-## 6. Variabelenbeheer
+## 6. Variabelen en configuratie
 
-### 6.1 group_vars/all.yml
+* **Defaults**: in rollen (`defaults/main.yml`)
+* **Omgevingsconfiguratie**: `ansible/inventory/group_vars/all/*.yml`
+* **Secrets**: voorlopig plain-text, voorbereid op Vault
 
-Bevat **alle Koha-logica** die omgevings-onafhankelijk is:
-
-* Koha instance naam
-* Database instellingen
-* Libraries
-* Admin user
-* Authorised values
-* Circulation rules
-* Paden naar Koha installer data
-
-### 6.2 group_vars/test.yml / prod.yml
-
-Bevat uitsluitend:
-
-* omgevingsspecifieke waarden
-* schaalverschillen (swap, resources)
-* geen logica
+Er zijn geen hardcoded waarden in tasks.
 
 ---
 
-## 7. Uitvoering (als ansible user)
+## 7. Status en toekomst
 
-### 7.1 Vereisten
+* structuur is stabiel na refactoring
+* voorbereid op:
 
-* Linux host met:
-
-  * Python 3
-  * SSH toegang
-* `ansible` user met:
-
-  * sudo-rechten (passwordless aanbevolen)
-* Correct inventory (Terraform of statisch)
+  * Ansible Vault
+  * CI/CD pipelines
+  * multi-instance Koha deployments
 
 ---
 
-### 7.2 Basiscommando’s
+## 8. Onderhoud
 
-Alle commando’s worden uitgevoerd **als ansible user** vanaf de Ansible control node.
+Wijzigingen in bibliotheeklogica (circulation, libraries, authorised values) vereisen **geen herinstallatie** van Koha.
 
-#### Bootstrap
-
-```bash
-ansible-playbook playbooks/01-bootstrap.yml
-```
-
-#### Koha installatie
-
-```bash
-ansible-playbook playbooks/02-koha-install.yml
-```
-
-#### Instance aanmaken
-
-```bash
-ansible-playbook playbooks/03-koha-instance.yml
-```
-
-#### Technische configuratie
-
-```bash
-ansible-playbook playbooks/04-koha-config.yml
-```
-
-#### Apache configuratie
-
-```bash
-ansible-playbook playbooks/05-koha-web.yml
-```
-
-#### Koha installer automatiseren
-
-```bash
-ansible-playbook playbooks/06-koha-postinstall.yml
-```
-
-#### Bibliotheekconfiguratie
-
-```bash
-ansible-playbook playbooks/07-koha-business.yml
-```
-
----
-
-### 7.3 Volledige run (clean install)
-
-```bash
-ansible-playbook playbooks/01-bootstrap.yml
-ansible-playbook playbooks/02-koha-install.yml
-ansible-playbook playbooks/03-koha-instance.yml
-ansible-playbook playbooks/04-koha-config.yml
-ansible-playbook playbooks/05-koha-web.yml
-ansible-playbook playbooks/06-koha-postinstall.yml
-ansible-playbook playbooks/07-koha-business.yml
-```
-
----
-
-## 8. Wat dit project **niet** doet (bewust)
-
-* Geen secrets management (Vault volgt later)
-* Geen security hardening
-* Geen CI/CD
-* Geen monitoring
-* Geen idempotentie-perfectionisme
-
-Dit is **bewust uitgesteld** tot de architectuur stabiel is.
-
----
-
-## 9. Verwachte vervolgstappen
-
-Zodra dit model stabiel is, zijn logische vervolgstappen:
-
-1. Ansible Vault integratie
-2. Secrets scheiden per omgeving
-3. Admin permissions en rollen
-4. Security hardening
-5. CI/CD pipeline
-6. Runbook en operationele documentatie
-
----
-
-## 10. Slot
-
-Dit project is opgezet als **structurele basis**, niet als quick fix.
-Het doel is dat elke beheerder, ook zonder Koha-voorkennis, begrijpt:
-
-* wat er gebeurt
-* wanneer het gebeurt
-* waar aanpassingen thuishoren
-
-Dit document is de referentie voor iedereen die met dit project werkt.
+Technische wijzigingen blijven beperkt tot hun eigen lifecycle-fase.

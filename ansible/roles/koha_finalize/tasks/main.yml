@@ -1,3 +1,14 @@
+# ============================================================================
+# ROLE: koha_finalize
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Laatste validatie en afronding van de Koha installatie.
+#
+# Doet wel:
+# - sanity checks
+# - optionele herstarts
+# ============================================================================
+
 - name: Assert Koha runtime facts exist
   assert:
     that:

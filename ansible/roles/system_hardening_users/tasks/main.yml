@@ -1,3 +1,19 @@
+# ============================================================================
+# ROLE: system_hardening_users
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Basis hardening door expliciete systeemgebruikers aan te maken
+# voor beheer en applicatiegebruik.
+#
+# Doet wel:
+# - users en groepen aanmaken
+# - sudo rechten beheren
+#
+# Doet niet:
+# - security auditing
+# - firewall configuratie
+# ============================================================================
+
 - name: Ensure sane password ageing defaults
   lineinfile:
     path: /etc/login.defs

@@ -1,3 +1,18 @@
+# ============================================================================
+# ROLE: koha_instance
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Maakt een Koha instance aan inclusief database en basisconfiguratie.
+#
+# Doet wel:
+# - aanmaken instance
+# - initialiseren database
+#
+# Doet niet:
+# - inhoudelijke Koha configuratie
+# - business logica
+# ============================================================================
+
 ---
 - name: Check if Koha instance exists
   stat:
@@ -24,7 +39,20 @@
 
 
 
-
+# ============================================================================
+# ROLE: koha_persist_facts
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Vastleggen van dynamische gegevens (facts) zodat latere rollen
+# niet afhankelijk zijn van runtime discovery.
+#
+# Doet wel:
+# - verzamelen van instance gerelateerde paden en gebruikers
+# - opslaan als Ansible facts
+#
+# Doet niet:
+# - configuratie aanpassen
+# ============================================================================
 
 - name: Check if Koha fact file exists
   stat:

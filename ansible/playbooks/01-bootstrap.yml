@@ -1,11 +1,38 @@
+# ============================================================================
+# 01-bootstrap.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Basisvoorbereiding van het besturingssysteem zodat alle volgende Koha-
+# gerelateerde playbooks voorspelbaar en idempotent kunnen draaien.
+#
+# Scope:
+# - OS package management
+# - swap configuratie
+# - locale correcties
+# - basis hardening en user setup
+#
+# Buiten scope:
+# - Koha installatie
+# - applicatie configuratie
+# ============================================================================
+
 - name: Bootstrap OS
-  hosts: test
+  hosts: all
   become: true
   gather_facts: true
 
   roles:
+    # Corrigeert locale-instellingen om Perl/Koha warnings te vermijden
     - locale_fix
+
+    # Maakt en hardent systeemgebruikers die door Koha en beheer gebruikt worden
     - system_hardening_users
+
+    # Zorgt voor consistente apt configuratie, updates en basis tooling
     - system_apt
+
+    # Configureert swap zodat Koha stabiel draait op kleinere droplets
     - system_swap
+
+	# Slaat runtime facts op voor gebruik in latere playbooks
     - koha_persist_facts

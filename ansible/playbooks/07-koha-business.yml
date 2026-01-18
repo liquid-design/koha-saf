@@ -1,8 +1,30 @@
+# ============================================================================
+# 07-koha-business.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Inrichten van bibliotheeklogica los van techniek.
+#
+# Scope:
+# - libraries
+# - circulation rules
+# - authorised values
+# - admin accounts
+# ============================================================================
+
 - name: Koha business configuration
-  hosts: test
+  hosts: all
   become: true
+
   roles:
+
+    # Definieert bibliotheken en branches
     - koha_business_libraries
+
+    # Configureert authorised values
     - koha_business_authorised_values
+
+    # Beheeraccounts en permissies
     - koha_business_admin
+
+    # Circulation gaat over uitleenregels
     - koha_business_circulation

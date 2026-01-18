@@ -1,3 +1,15 @@
+# ============================================================================
+# ROLE: koha_postinstall_yaml
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# YAML-gedreven Koha configuratie toepassen.
+# Deze rol fungeert als brug tussen declaratieve data en Koha APIs.
+#
+# Doet wel:
+# - lezen van YAML configuraties
+# - toepassen van instellingen
+# ============================================================================
+
 - name: Load mandatory YAML
   command: >
     koha-shell {{ koha_instance }} -c

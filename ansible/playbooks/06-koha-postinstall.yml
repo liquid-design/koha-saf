@@ -1,7 +1,24 @@
+# ============================================================================
+# 06-koha-postinstall.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Uitvoeren van post-install stappen die normaal via webinstaller lopen.
+#
+# Scope:
+# - database initiële data
+# - Python/YAML gedreven configuraties
+# ============================================================================
+
 - name: Koha post-install
-  hosts: test
+  hosts: all
   become: true
   roles:
+
+    # Uitvoeren van Python gebaseerde postinstall taken
     - koha_postinstall_python
+
+    # Initialiseert database inhoud
     - koha_postinstall_db
+
+    # YAML-gedreven configuratie (instellingen, defaults)
     - koha_postinstall_yaml

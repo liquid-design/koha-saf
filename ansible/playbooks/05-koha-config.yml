@@ -1,6 +1,19 @@
+# ============================================================================
+# 05-koha-config.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Technische configuratie van Koha na instance creatie.
+#
+# Scope:
+# - koha-conf.xml
+# - systeemparameters
+# ============================================================================
+
 - name: Configure Koha
-  hosts: test
+  hosts: all
   become: true
 
   roles:
+
+    # Past technische Koha configuratie toe
     - koha_config

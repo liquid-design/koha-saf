@@ -1,6 +1,20 @@
+# ============================================================================
+# 04-koha-instance.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Aanmaken van een Koha instance inclusief database.
+#
+# Scope:
+# - instance creatie
+# - database setup
+# - vastleggen dynamische facts
+# ============================================================================
+
 - name: Create Koha instance
-  hosts: test
+  hosts: all
   become: true
 
   roles:
+
+    # Maakt Koha instance en initialiseert database
     - koha_instance

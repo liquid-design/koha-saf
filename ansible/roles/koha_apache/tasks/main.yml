@@ -1,3 +1,18 @@
+# ============================================================================
+# ROLE: koha_apache
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Configureert Apache zodat Koha instances bereikbaar zijn.
+#
+# Doet wel:
+# - activeren vereiste Apache modules
+# - configureren van vhosts
+#
+# Doet niet:
+# - Koha instance creatie
+# - database configuratie
+# ============================================================================
+
 - name: Enable required Apache modules for Koha
   apache2_module:
     name: "{{ item }}"

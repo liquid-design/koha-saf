@@ -1,3 +1,18 @@
+# ============================================================================
+# ROLE: system_swap
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Configureert swapruimte om stabiliteit te garanderen op systemen
+# met beperkte fysieke RAM (bijv. cloud droplets).
+#
+# Doet wel:
+# - swapfile aanmaken
+# - swap activeren
+#
+# Doet niet:
+# - tuning van kernel parameters buiten swap
+# ============================================================================
+
 - name: Create swapfile
   command: fallocate -l {{ swap_size }} {{ swap_file }}
   args:

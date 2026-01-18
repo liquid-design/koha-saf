@@ -1,3 +1,17 @@
+# ============================================================================
+# ROLE: locale_fix
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Corrigeert locale-instellingen zodat Perl en Koha geen warnings genereren.
+#
+# Doet wel:
+# - locale genereren
+# - systeemlocale instellen
+#
+# Doet niet:
+# - applicatie-specifieke encoding logica
+# ============================================================================
+
 - name: Ensure locales package is installed
   ansible.builtin.apt:
     name: locales

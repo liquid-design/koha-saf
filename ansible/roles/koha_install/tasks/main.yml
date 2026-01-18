@@ -1,3 +1,19 @@
+# ============================================================================
+# ROLE: koha_install
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Installeert de Koha softwarepakketten op het systeem.
+# Deze rol zorgt uitsluitend voor package-level installatie.
+#
+# Doet wel:
+# - installeren van Koha packages via apt
+#
+# Doet niet:
+# - instance creatie
+# - Apache configuratie
+# - Koha configuratiebestanden
+# ============================================================================
+
 # Install Koha common first (non-interactive is CRUCIAL)
 - name: Install Koha common package
   apt:

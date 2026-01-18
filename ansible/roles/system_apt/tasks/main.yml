@@ -1,3 +1,19 @@
+# ============================================================================
+# ROLE: system_apt
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Zorgt voor een voorspelbare en consistente APT-omgeving op Debian/Ubuntu.
+# Deze rol vormt de basis voor alle verdere package-installaties.
+#
+# Doet wel:
+# - apt cache updates
+# - basis packages installeren
+# - non-interactive apt configuratie
+#
+# Doet niet:
+# - applicatie-specifieke packages (Koha, Apache)
+# ============================================================================
+
 - name: Update apt cache
   apt:
     update_cache: yes

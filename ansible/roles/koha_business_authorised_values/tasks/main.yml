@@ -1,3 +1,13 @@
+# ============================================================================
+# ROLE: koha_business_authorised_values
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Beheert authorised values die door Koha business-logica worden gebruikt.
+#
+# Doet wel:
+# - synchroniseren van authorised values
+# ============================================================================
+
 - name: Assert Koha runtime facts exist
   assert:
     that:

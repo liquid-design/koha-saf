@@ -1,7 +1,20 @@
+# ============================================================================
+# 08-koha-finalize.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Afronding van installatie en validatie van Koha omgeving.
+#
+# Scope:
+# - sanity checks
+# - laatste fixes
+# ============================================================================
+
 - name: Finalize Koha installation
-  hosts: test
+  hosts: all
   become: true
   gather_facts: true
 
   roles:
+
+    # Laatste validatie version in db en afrondende taken
     - koha_finalize

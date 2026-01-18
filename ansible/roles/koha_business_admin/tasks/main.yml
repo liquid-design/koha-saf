@@ -1,3 +1,14 @@
+# ============================================================================
+# ROLE: koha_business_admin
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Inrichten van beheeraccounts en permissies.
+#
+# Doet wel:
+# - aanmaken admin users
+# - toekennen permissies
+# ============================================================================
+
 - name: Assert Koha runtime facts exist
   assert:
     that:

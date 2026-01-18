@@ -1,3 +1,17 @@
+# ============================================================================
+# ROLE: koha_postinstall_python
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Post-install configuratie die via Python tooling wordt uitgevoerd,
+# bijvoorbeeld API calls of complexe transformaties.
+#
+# Doet wel:
+# - uitvoeren van gecontroleerde Python scripts
+#
+# Doet niet:
+# - directe database manipulatie
+# ============================================================================
+
 - name: Install Python and MySQL bindings
   apt:
     name:
