@@ -2,5 +2,9 @@ ansible_user: ansible
 #ansible_ssh_private_key_file: /Users/sander/.ssh/ansible
 ansible_ssh_private_key_file: ~/.ssh/ansible_nopass
 
+# Koha can be setup with domain
+koha_domain: ".marxisme.be"
+
+# this is the subdomain
 koha_instance: "bib-test"
 koha_suite: "25.05"

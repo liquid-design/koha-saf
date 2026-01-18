@@ -1,5 +1,4 @@
 # identiteit
-koha_domain: ".marxisme.be"
 koha_repo_baseurl: "https://debian.koha-community.org/koha"
 koha_keyring_path: /etc/apt/keyrings/koha.asc
 
