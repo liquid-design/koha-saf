@@ -12,6 +12,7 @@ Doelstellingen:
 * duidelijke lifecycle-fases
 * strikte scheiding tussen infrastructuur, techniek en bibliotheeklogica
 * geschikt voor teamgebruik en verdere CI/CD-integratie
+* CI/CD is bewust nog niet geïmplementeerd; de huidige structuur is hier wel op voorbereid.
 
 ---
 
@@ -68,12 +69,116 @@ koha-saf/
 
 ## 3. Terraform
 
+Terraform vormt de **fundamentele laag** van dit project en is de **single source of truth** voor alles wat met infrastructuur te maken heeft.
+
+Terraform is verantwoordelijk voor:
+
+- provisioning van infrastructuur (bijv. DigitalOcean droplets)
+- basis netwerk- en OS-instellingen
+- het vastleggen van infrastructuurstatus in state
+- het beschikbaar maken van infrastructuurgegevens voor Ansible via outputs
+
+Er worden **geen infrastructuurgegevens hardcoded** in Ansible; alle hostinformatie is afgeleid van Terraform.
+
+---
+
+Helder — je hebt gelijk 👍
+Hieronder staat **het volledige Terraform-hoofdstuk (incl. subhoofdstukken 3.1 t/m 3.6)** als **pure Markdown**, **zonder** een omhullende code-block.
+Dit kun je **direct copy-pasten in `README.md`** en het rendert correct.
+
+---
+
+## 3. Terraform
+
+Terraform vormt de **fundamentele laag** van dit project en is de **single source of truth** voor alles wat met infrastructuur te maken heeft.
+
 Terraform is verantwoordelijk voor:
 
 * provisioning van infrastructuur (bijv. DigitalOcean droplets)
-* netwerk- en basis-OS-instellingen
+* basis netwerk- en OS-instellingen
+* het vastleggen van infrastructuurstatus in state
+* het beschikbaar maken van infrastructuurgegevens voor Ansible via outputs
 
-### Stappen
+Er worden **geen infrastructuurgegevens hardcoded** in Ansible; alle hostinformatie is afgeleid van Terraform.
+
+---
+
+### 3.1 Terraform als single source of truth
+
+Alle informatie over servers, IP-adressen, regio’s en omgevingen bestaat **uitsluitend** in Terraform:
+
+* `main.tf` definieert *wat* er bestaat
+* `terraform.tfvars` en `secrets.tfvars` bepalen *hoe*
+* `terraform.tfstate` beschrijft *wat er daadwerkelijk is uitgerold*
+
+Deze state is leidend voor de rest van het project.
+
+---
+
+### 3.2 Terraform outputs als contract
+
+Terraform exposeert expliciet infrastructuurinformatie via outputs, onder andere:
+
+* droplet naam
+* publiek IP-adres
+* regio
+* tags (bijv. `test`, `prod`)
+
+Deze outputs vormen een **contract** tussen Terraform en Ansible.
+
+Een vereenvoudigd voorbeeld:
+
+```hcl
+output "droplets" {
+  value = {
+    for k, d in digitalocean_droplet.droplet :
+    k => {
+      name   = d.name
+      ip     = d.ipv4_address
+      region = d.region
+      tags   = d.tags
+    }
+  }
+}
+```
+
+Ansible consumeert deze gegevens, maar **definieert ze niet zelf**.
+
+---
+
+### 3.3 Koppeling met Ansible via `terraform.py`
+
+De koppeling tussen Terraform en Ansible gebeurt via een **dynamic inventory script**:
+
+```
+ansible/inventory/terraform.py
+```
+
+Dit script:
+
+* voert `terraform output -json` uit in de `terraform/` directory
+* leest rechtstreeks uit `terraform.tfstate`
+* zet Terraform outputs om naar een Ansible inventory
+* maakt automatisch groepen aan (`prod`, `test`) op basis van Terraform tags
+
+Hierdoor:
+
+* zijn er **geen statische inventory-bestanden**
+* kan infrastructuur niet “vergeten” worden in Ansible
+* blijft Terraform leidend over omgevingen
+
+Voorbeeldgebruik:
+
+```bash
+ansible-inventory -i inventory/terraform.py --list
+ansible-playbook playbooks/07-koha-business.yml -l test
+```
+
+---
+
+### 3.4 Terraform workflow
+
+Terraform wordt uitgevoerd vóór Ansible.
 
 ```bash
 cd terraform
@@ -86,7 +191,16 @@ terraform apply \
   -var-file=secrets/secrets.tfvars
 ```
 
-Selectief verwijderen van resources:
+Na een succesvolle `apply` is de infrastructuur:
+
+* beschikbaar voor Ansible
+* automatisch opgenomen in de dynamic inventory
+
+---
+
+### 3.5 Beheer en lifecycle
+
+Selectief verwijderen of aanpassen van resources gebeurt **altijd via Terraform**:
 
 ```bash
 terraform state list
@@ -95,6 +209,15 @@ terraform destroy \
   -var-file=secrets/secrets.tfvars \
   -target='digitalocean_droplet.droplet["koha-saf-test"]'
 ```
+
+Ansible mag ervan uitgaan dat:
+
+* hosts bestaan
+* IP-adressen correct zijn
+* tags kloppen
+
+Als dat niet zo is, is Terraform de plek waar dit wordt opgelost.
+
 
 ---
 
