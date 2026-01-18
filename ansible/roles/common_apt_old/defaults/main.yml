@@ -1,8 +1,0 @@
-# roles/common_apt/defaults
-apt_packages: []		# Basis packages zoals curl, sudo, apache2
-apt_extra_repos: []		# Extra apt repos
-apt_gpg_keys: []		# GPG keys voor repos
-
-# Koha packages, gesplitst volgens volgorde in de officiële docs
-koha_packages_pre_db: [] # koha-common
-koha_packages_db: []	 # mariadb-server
