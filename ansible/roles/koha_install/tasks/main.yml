@@ -1,0 +1,32 @@
+# Install Koha common first (non-interactive is CRUCIAL)
+- name: Install Koha common package
+  apt:
+    name: koha-common
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  become: true
+
+# Then install MariaDB explicitly
+- name: Install MariaDB server
+  apt:
+    name: mariadb-server
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  become: true
+
+
+- name: Ensure MariaDB is running
+  service:
+    name: mariadb
+    state: started
+    enabled: true
+
+
+- name: Configure Koha domain
+  ansible.builtin.lineinfile:
+    path: /etc/koha/koha-sites.conf
+    regexp: '^DOMAIN='
+    line: 'DOMAIN="{{ koha_domain }}"'
+  when: koha_domain is defined

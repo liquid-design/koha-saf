@@ -1,0 +1,6 @@
+- name: Install Python and MySQL bindings
+  apt:
+    name:
+      - python3
+      - python3-pymysql
+    state: present

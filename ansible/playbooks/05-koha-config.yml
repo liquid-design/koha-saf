@@ -1,0 +1,6 @@
+- name: Configure Koha
+  hosts: test
+  become: true
+
+  roles:
+    - koha_config

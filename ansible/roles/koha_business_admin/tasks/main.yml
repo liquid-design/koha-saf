@@ -1,0 +1,57 @@
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+
+- name: Ensure admin patron category exists
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO categories
+        (categorycode, description, enrolmentperiod, upperagelimit)
+      VALUES
+        ('{{ koha_admin.category }}',
+         'Admin users',
+         0,
+         999)
+      ON DUPLICATE KEY UPDATE
+        description = VALUES(description);
+
+
+- name: Ensure admin patron
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO borrowers
+      (cardnumber, surname, firstname, categorycode, branchcode, userid)
+      VALUES
+      ('{{ koha_admin.cardnumber }}',
+       '{{ koha_admin.surname }}',
+       '{{ koha_admin.firstname }}',
+       '{{ koha_admin.category }}',
+       '{{ koha_admin.branch }}',
+       '{{ koha_admin.username }}')
+      ON DUPLICATE KEY UPDATE surname=VALUES(surname);
+
+
+- name: Ensure admin borrower credentials and privileges
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      UPDATE borrowers
+      SET
+        auth_method = 'password',
+        password = '$2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q',
+        flags = 1
+      WHERE userid = '{{ koha_admin.username }}';

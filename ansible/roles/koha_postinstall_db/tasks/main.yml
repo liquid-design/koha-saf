@@ -1,0 +1,36 @@
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.instance is defined  
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+
+- name: Set Koha DB vars from persistent facts
+  set_fact:
+    koha_db_name: "{{ ansible_local.koha.db_name }}"
+    koha_db_user: "{{ ansible_local.koha.db_user }}"
+    koha_db_pass: "{{ ansible_local.koha.db_pass }}"
+  no_log: true
+
+
+- name: Import Koha DB structure
+  community.mysql.mysql_db:
+    name: "{{ koha_db_name }}"
+    state: import
+    target: "{{ koha_paths.structure }}"
+    login_user: "{{ koha_db_user }}"
+    login_password: "{{ koha_db_pass }}"
+
+
+- name: Import mandatory SQL
+  community.mysql.mysql_db:
+    name: "{{ koha_db_name }}"
+    state: import
+    target: "{{ koha_paths.mandatory_sql }}/{{ item }}"
+    login_user: "{{ koha_db_user }}"
+    login_password: "{{ koha_db_pass }}"
+  loop: "{{ mandatory_sql_files }}"

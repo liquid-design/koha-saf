@@ -1,0 +1,11 @@
+- name: Load mandatory YAML
+  command: >
+    koha-shell {{ koha_instance }} -c
+    "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file {{ koha_paths.mandatory_yaml }}/{{ item }}"
+  loop: "{{ mandatory_yaml_files }}"
+
+- name: Load MARC21 mandatory YAML
+  command: >
+    koha-shell {{ koha_instance }} -c
+    "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file {{ koha_paths.marc21 }}/mandatory/{{ item }}"
+  loop: "{{ marc21_mandatory_yaml }}"

@@ -1,0 +1,8 @@
+# Admin user
+koha_admin:
+  username: kohaadmin
+  cardnumber: "1867"
+  surname: Marx
+  firstname: Karl
+  category: S
+  branch: SAF

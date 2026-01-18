@@ -1,0 +1,4 @@
+# Libraries
+koha_libraries:
+  - code: SAF
+    name: Steunpunt Antifacisme

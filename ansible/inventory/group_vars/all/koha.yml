@@ -1,0 +1,9 @@
+# identiteit
+koha_domain: ".marxisme.be"
+koha_repo_baseurl: "https://debian.koha-community.org/koha"
+koha_keyring_path: /etc/apt/keyrings/koha.asc
+
+# 25.05 is the koha version to install 
+# remove the installer with 25.0506000
+koha_version: "25.05"
+koha_webinstaller_version: "25.0506000"

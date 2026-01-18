@@ -1,0 +1,31 @@
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+- name: Ensure libraries
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO branches (branchcode, branchname)
+      VALUES ('{{ item.code }}', '{{ item.name }}')
+      ON DUPLICATE KEY UPDATE branchname=VALUES(branchname);
+  loop: "{{ koha_libraries }}"
+
+
+#- name: Ensure libraries
+#  community.mysql.mysql_query:
+#    login_db: "{{ db_name }}"
+#    login_user: "{{ koha_db_user }}"
+#    login_password: "{{ koha_db_pass }}"
+#    query: |
+#      INSERT INTO branches (branchcode, branchname)
+#      VALUES ('{{ item.code }}', '{{ item.name }}')
+#      ON DUPLICATE KEY UPDATE branchname=VALUES(branchname);
+#  loop: "{{ koha_libraries }}"

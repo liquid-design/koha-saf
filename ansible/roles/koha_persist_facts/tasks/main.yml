@@ -1,0 +1,12 @@
+---
+# ----------------------------------------------------------------------
+# Ensure host-local facts directory exists
+# ----------------------------------------------------------------------
+
+- name: Ensure /etc/ansible/facts.d exists
+  file:
+    path: /etc/ansible/facts.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'

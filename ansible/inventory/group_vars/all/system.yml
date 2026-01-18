@@ -1,0 +1,4 @@
+# Swap
+swap_file: /swapfile
+swap_size: 2G
+swap_swappiness: 10

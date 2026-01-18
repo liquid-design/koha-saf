@@ -1,0 +1,8 @@
+- name: Koha business configuration
+  hosts: test
+  become: true
+  roles:
+    - koha_business_libraries
+    - koha_business_authorised_values
+    - koha_business_admin
+    - koha_business_circulation

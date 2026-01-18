@@ -1,0 +1,18 @@
+- name: Ensure sane password ageing defaults
+  lineinfile:
+    path: /etc/login.defs
+    regexp: "^{{ item.key }}"
+    line: "{{ item.key }} {{ item.value }}"
+  loop:
+    - { key: PASS_MAX_DAYS, value: "99999" }
+    - { key: PASS_MIN_DAYS, value: "0" }
+    - { key: PASS_WARN_AGE, value: "7" }
+
+- name: Ensure root password is set
+  user:
+    name: root
+    password: "{{ 'TemporaryPassword123!' | password_hash('sha512') }}"
+    update_password: always
+
+- name: Ensure root password does not expire
+  command: chage -M 99999 root

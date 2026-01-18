@@ -1,0 +1,25 @@
+- name: Ensure apt keyrings directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Koha signing key
+  get_url:
+    url: "{{ koha_repo_baseurl }}/gpg.asc"
+    dest: "{{ koha_keyring_path }}"
+    mode: '0644'
+
+- name: Configure Koha APT sources file
+  copy:
+    dest: /etc/apt/sources.list.d/koha.sources
+    content: |
+      Types: deb
+      URIs: {{ koha_repo_baseurl }}/
+      Suites: {{ koha_version }}
+      Components: main
+      Signed-By: {{ koha_keyring_path }}
+
+- name: Update apt cache
+  apt:
+    update_cache: yes

@@ -1,0 +1,29 @@
+- name: Create swapfile
+  command: fallocate -l {{ swap_size }} {{ swap_file }}
+  args:
+    creates: "{{ swap_file }}"
+
+- name: Set swapfile permissions
+  file:
+    path: "{{ swap_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Format swapfile
+  command: mkswap {{ swap_file }}
+  when:
+    - ansible_facts.swaptotal_mb | int == 0
+
+- name: Enable swapfile
+  command: swapon {{ swap_file }}
+  when:
+    - ansible_facts.swaptotal_mb | int == 0
+
+- name: Persist swapfile in fstab
+  mount:
+    name: none
+    src: "{{ swap_file }}"
+    fstype: swap
+    opts: sw
+    state: present

@@ -1,0 +1,7 @@
+- name: Finalize Koha installation
+  hosts: test
+  become: true
+  gather_facts: true
+
+  roles:
+    - koha_finalize

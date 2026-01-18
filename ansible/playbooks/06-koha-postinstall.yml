@@ -1,0 +1,7 @@
+- name: Koha post-install
+  hosts: test
+  become: true
+  roles:
+    - koha_postinstall_python
+    - koha_postinstall_db
+    - koha_postinstall_yaml

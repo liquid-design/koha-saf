@@ -1,0 +1,5 @@
+- name: Prepare Apache for Koha
+  hosts: test
+  become: true
+  roles:
+    - koha_apache

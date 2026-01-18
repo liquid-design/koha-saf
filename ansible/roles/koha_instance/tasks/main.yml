@@ -1,0 +1,84 @@
+---
+- name: Check if Koha instance exists
+  stat:
+    path: "/etc/koha/sites/{{ koha_instance }}"
+  register: koha_site
+
+- name: Create Koha instance
+  command: "koha-create --create-db {{ koha_instance }}"
+  when: not koha_site.stat.exists
+
+- name: Enable Plack
+  command: "koha-plack --enable {{ koha_instance }}"
+  when: not koha_site.stat.exists
+
+- name: Start Plack
+  command: "koha-plack --start {{ koha_instance }}"
+  when: not koha_site.stat.exists
+  
+- name: Reload Apache after Koha instance creation
+  ansible.builtin.service:
+    name: apache2
+    state: reloaded
+  when: not koha_site.stat.exists
+
+
+
+
+
+- name: Check if Koha fact file exists
+  stat:
+    path: /etc/ansible/facts.d/koha.fact
+  register: koha_fact_file
+
+- name: Assert koha-conf.xml exists
+  stat:
+    path: /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+  register: koha_conf
+
+- name: Fail if Koha instance not created yet
+  fail:
+    msg: "Koha instance not yet created"
+  when: not koha_conf.stat.exists
+
+- name: Read Koha database name
+  command: >
+    xmlstarlet sel -t -v '/yazgfs/config/database/text()'
+    /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+  register: koha_db_name_raw
+  changed_when: false
+  when: not koha_fact_file.stat.exists
+
+- name: Read Koha database user
+  command: >
+    xmlstarlet sel -t -v '/yazgfs/config/user/text()'
+    /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+  register: koha_db_user_raw
+  changed_when: false
+  when: not koha_fact_file.stat.exists
+
+- name: Read Koha database password
+  command: >
+    xmlstarlet sel -t -v '/yazgfs/config/pass/text()'
+    /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+  register: koha_db_pass_raw
+  changed_when: false
+  no_log: true
+  when: not koha_fact_file.stat.exists
+
+
+- name: Persist Koha runtime facts
+  copy:
+    dest: /etc/ansible/facts.d/koha.fact
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      {
+        "instance": "{{ koha_instance }}",
+        "db_name": "{{ koha_db_name_raw.stdout }}",
+        "db_user": "{{ koha_db_user_raw.stdout }}",
+        "db_pass": "{{ koha_db_pass_raw.stdout }}"
+      }
+  no_log: true
+  when: not koha_fact_file.stat.exists

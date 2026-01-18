@@ -1,0 +1,6 @@
+- name: Create Koha instance
+  hosts: test
+  become: true
+
+  roles:
+    - koha_instance

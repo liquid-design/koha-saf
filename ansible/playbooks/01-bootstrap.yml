@@ -1,0 +1,11 @@
+- name: Bootstrap OS
+  hosts: test
+  become: true
+  gather_facts: true
+
+  roles:
+    - locale_fix
+    - system_hardening_users
+    - system_apt
+    - system_swap
+    - koha_persist_facts

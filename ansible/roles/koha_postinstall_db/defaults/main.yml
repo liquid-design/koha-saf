@@ -1,0 +1,18 @@
+# Paths
+koha_paths:
+  structure: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/kohastructure.sql
+  mandatory_sql: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/mandatory
+  mandatory_yaml: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory
+  marc21: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21
+
+mandatory_sql_files:
+  - sysprefs.sql
+  - subtag_registry.sql
+  - auth_val_cat.sql
+  - message_transport_types.sql
+  - sample_notices_message_attributes.sql
+  - sample_notices_message_transports.sql
+  - keyboard_shortcuts.sql
+  - userflags.sql
+  - userpermissions.sql
+  - audio_alerts.sql

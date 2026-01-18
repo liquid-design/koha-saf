@@ -1,0 +1,13 @@
+mandatory_yaml_files:
+  - account_credit_types.yml
+  - account_debit_types.yml
+  - auth_values.yml
+  - class_sources.yml
+  - patron_restriction_types.yml
+  - sample_frequencies.yml
+  - sample_notices.yml
+  - sample_numberpatterns.yml
+
+marc21_mandatory_yaml:
+  - authorities_normal_marc21.yml
+  - marc21_framework_DEFAULT.yml

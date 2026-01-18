@@ -1,0 +1,24 @@
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+
+- name: Ensure circulation rules
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+        INSERT IGNORE INTO circulation_rules (rule_name, rule_value)
+        VALUES
+        ('maxissueqty', '{{ circ_rule_max_checkouts }}'),
+        ('issuelength', '{{ circ_rule_loan_period }}'),
+        ('renewalsallowed', '{{ circ_rule_renewals_allowed }}'),
+        ('holds_per_day', '{{ circ_rule_holds_daily }}'),
+        ('holds_per_record', '{{ circ_rule_holds_per_record }}'),
+        ('onshelfholds', '{{ circ_rule_onshelf }}');

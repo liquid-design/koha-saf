@@ -1,0 +1,7 @@
+# Circulation rules
+circ_rule_max_checkouts: 20
+circ_rule_loan_period: 14
+circ_rule_renewals_allowed: 2
+circ_rule_holds_daily: 5
+circ_rule_holds_per_record: 3
+circ_rule_onshelf: 1

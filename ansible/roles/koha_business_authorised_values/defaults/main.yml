@@ -1,0 +1,5 @@
+# Authorised values
+authorised_values:
+  - category: CCODE
+    value: BOOK
+    label: Boek

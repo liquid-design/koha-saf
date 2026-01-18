@@ -1,0 +1,6 @@
+- name: Install Koha software
+  hosts: test
+  become: true
+  roles:
+    - koha_repo
+    - koha_install

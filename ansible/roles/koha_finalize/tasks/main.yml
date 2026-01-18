@@ -1,0 +1,39 @@
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.instance is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+
+- name: Set system preference Version
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO systempreferences (variable, value)
+      VALUES ('Version', '{{ koha_webinstaller_version }}')
+      ON DUPLICATE KEY UPDATE
+        value = VALUES(value);
+
+# ----------------------------------------------------------------------
+# Rebuild search indexes
+# ----------------------------------------------------------------------
+
+- name: Rebuild Zebra index (full)
+  command: >
+    koha-rebuild-zebra -f -a -b -v {{ koha_instance }}
+
+
+- name: Restart Zebra
+  command: >
+    koha-zebra --restart {{ koha_instance }}
+
+
+- name: Restart Plack
+  command: >
+    koha-plack --restart {{ koha_instance }}

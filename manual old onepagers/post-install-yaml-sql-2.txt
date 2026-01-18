@@ -1,0 +1,303 @@
+#!/bin/bash
+# ===================================================
+# Proof-of-concept post-install Koha MARC21
+# ===================================================
+
+set -e
+
+### 1️⃣ Variabelen
+KOHA_INSTANCE="bib-test"
+DB_NAME="koha_bib-test"
+DB_USER="koha_bib-test"
+DB_PASS='d3\`#pO9@*OT9dA|5'
+
+LIBRARY_CODE="SAF"
+LIBRARY_NAME="Steunpunt Antifacisme"
+ADMIN_USER="kohaadmin"
+ADMIN_PASSWORD="Trotsky1917lenin!"
+ADMIN_CARDNUMBER="1867"
+ADMIN_SURNAME="Marx"
+ADMIN_FIRSTNAME="Karl"
+ADMIN_CATEGORY="S"
+
+CIRC_RULE_MAX_CHECKOUTS=50
+CIRC_RULE_LOAN_PERIOD=14
+CIRC_RULE_UNITS="Days"
+CIRC_RULE_RENEWALS_ALLOWED=10
+CIRC_RULE_RENEWALS_PERIOD=14
+CIRC_RULE_HOLDS_TOTAL=10
+CIRC_RULE_HOLDS_DAILY=10
+CIRC_RULE_HOLDS_PER_RECORD=1
+CIRC_RULE_ONSHELF=1
+
+MANDATORY_SQL_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/mandatory"
+MANDATORY_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory"
+OPTIONAL_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional"
+MARC21_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21"
+
+KOHA_REBUILD_ZEBRA_BIN=$(which koha-rebuild-zebra || echo "/usr/share/koha/bin/koha-rebuild-zebra")
+
+### 2️⃣ Kohastructure SQL import
+echo "=== Stap 1: kohastructure.sql importeren ==="
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < /usr/share/koha/intranet/cgi-bin/installer/data/mysql/kohastructure.sql
+echo "[OK] kohastructure.sql"
+
+### 3️⃣ Mandatory SQL importeren
+MANDATORY_SQL_ORDER=(
+  "sysprefs.sql"
+  "subtag_registry.sql"
+  "auth_val_cat.sql"
+  "message_transport_types.sql"
+  "sample_notices_message_attributes.sql"
+  "sample_notices_message_transports.sql"
+  "keyboard_shortcuts.sql"
+  "userflags.sql"
+  "userpermissions.sql"
+  "audio_alerts.sql"
+)
+
+echo "=== Stap 2: Mandatory SQL importeren ==="
+for sqlfile in "${MANDATORY_SQL_ORDER[@]}"; do
+    echo "Import $sqlfile ..."
+    mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$MANDATORY_SQL_PATH/$sqlfile"
+    echo "[OK] $sqlfile"
+done
+
+### 4️⃣ Mandatory YAML importeren (algemeen)
+MANDATORY_YAML_ORDER=(
+  "account_credit_types.yml"
+  "account_debit_types.yml"
+  "auth_values.yml"
+  "class_sources.yml"
+  "illbatch_statuses.yml"
+  "patron_restriction_types.yml"
+  "sample_frequencies.yml"
+  "sample_notices.yml"
+  "sample_numberpatterns.yml"
+)
+
+echo "=== Stap 3a: Mandatory YAML importeren (algemeen) ==="
+for ymlfile in "${MANDATORY_YAML_ORDER[@]}"; do
+    FILE_PATH="$MANDATORY_YAML_PATH/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+
+### 5️⃣ Mandatory YAML importeren (MARC21)
+MARC21_MANDATORY_YAML_ORDER=(
+  "authorities_normal_marc21.yml"
+  "marc21_framework_DEFAULT.yml"
+)
+
+echo "=== Stap 3b: Mandatory YAML importeren (MARC21) ==="
+for ymlfile in "${MARC21_MANDATORY_YAML_ORDER[@]}"; do
+    FILE_PATH="$MARC21_PATH/mandatory/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+
+
+
+
+### 6️⃣ Optional YAML importeren (algemeen)
+OPTIONAL_YAML_ORDER=(
+  "auth_val.yml"
+  "csv_profiles.yml"
+  "marc21_holdings_coded_values.yml"
+  "marc21_relatorterms.yml"
+  "patron_atributes.yml"
+  "patron_categories.yml"
+  "sample_itemtypes.yml"
+  "sample_creator_data.yml"
+  "sample_z3950_servers.yml"
+  "parameters.yml"
+)
+
+echo "=== Stap 4a: Optional YAML importeren (algemeen) ==="
+for ymlfile in "${OPTIONAL_YAML_ORDER[@]}"; do
+    FILE_PATH="$OPTIONAL_YAML_PATH/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+
+### 7️⃣ Optional YAML importeren (MARC21)
+MARC21_OPTIONAL_YAML_ORDER=(
+  "marc21_default_matching_rules.yml"
+  "marc21_sample_fastadd_framework.yml"
+  "marc21_simple_bib_frameworks.yml"
+)
+
+echo "=== Stap 4b: Optional YAML importeren (MARC21) ==="
+for ymlfile in "${MARC21_OPTIONAL_YAML_ORDER[@]}"; do
+    FILE_PATH="$MARC21_PATH/optional/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+
+
+
+
+
+
+
+
+
+# ===================================================
+# 7️⃣ Eigen inserts (branches, patron, circulation rules, biblio frameworks)
+# ===================================================
+echo "Stap 5: Eigen inserts uitvoeren ..."
+
+# Branch
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO branches (branchcode, branchname, pickup_location, public)
+VALUES ('$LIBRARY_CODE', '$LIBRARY_NAME', 1, 1);
+"
+
+# Patron categories (optioneel als je patron_categories.yml gebruikt)
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, overduenoticerequired, reservefee, hidelostitems, category_type, default_privacy, checkprevcheckout, can_place_ill_in_opac, can_be_guarantee, enforce_expiry_notice)
+VALUES
+('S','Staff',99,0,0,0,'S','default','inherit',1,0,0);
+"
+
+# Admin borrower
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO borrowers (cardnumber, surname, firstname, branchcode, categorycode, userid, auth_method, password, flags)
+VALUES ('$ADMIN_CARDNUMBER', '$ADMIN_SURNAME', '$ADMIN_FIRSTNAME', '$LIBRARY_CODE', '$ADMIN_CATEGORY', '$ADMIN_USER', 'password', '\$2a\$08\$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q', 1);
+"
+
+# Circulation rules
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO circulation_rules (rule_name, rule_value)
+VALUES
+('maxissueqty', '$CIRC_RULE_MAX_CHECKOUTS'),
+('issuelength', '$CIRC_RULE_LOAN_PERIOD'),
+('renewalsallowed', '$CIRC_RULE_RENEWALS_ALLOWED'),
+('holds_per_day', '$CIRC_RULE_HOLDS_DAILY'),
+('holds_per_record', '$CIRC_RULE_HOLDS_PER_RECORD'),
+('onshelfholds', '$CIRC_RULE_ONSHELF');
+"
+
+# Biblio frameworks (optioneel)
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO biblio_framework (frameworkcode, frameworktext)
+VALUES
+('ACQ', 'Acquisition framework'),
+('AR', 'Models'),
+('BKS', 'Books, Booklets, Workbooks'),
+('CF', 'CD-ROMs, DVD-ROMs, General Online Resources'),
+('FA', 'Fast Add Framework'),
+('IR', 'Binders'),
+('KT', 'Kits'),
+('SER', 'Serials'),
+('SR', 'Audio Cassettes, CDs'),
+('VR', 'DVDs, VHS');
+"
+
+
+
+
+
+
+
+
+
+
+### 8️⃣ MARC flavour instellen
+echo "=== Stap 5: MARC flavour instellen op MARC21 ==="
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO systempreferences (variable, value) VALUES ('marcflavour', 'MARC21');
+"
+echo "[OK] MARC flavour ingesteld"
+
+### 9️⃣ Zebra rebuild
+echo "=== Stap 6: Zebra index rebuild ==="
+sudo "$KOHA_REBUILD_ZEBRA_BIN" -f -v "$KOHA_INSTANCE"
+echo "[OK] Zebra rebuild voltooid"
+
+echo "=== Proof-of-concept Koha MARC21 installatie compleet ✅ ==="
+
+
+
+USE koha_bib-test;
+
+INSERT INTO systempreferences (variable,value)
+VALUES ('Version','25.05.06.000')
+ON DUPLICATE KEY UPDATE value='25.05.06.000';
+
+ansible@bib-test:/usr/share/koha/intranet/cgi-bin$ sudo koha-rebuild-zebra -f -a -b -v bib-test
+Zebra configuration information
+================================
+Zebra biblio directory      = /var/lib/koha/bib-test/biblios
+Zebra authorities directory = /var/lib/koha/bib-test/authorities
+Koha directory              = /usr/share/koha/intranet/cgi-bin
+Lockfile                    = /var/lock/koha/bib-test/rebuild/rebuild..LCK
+BIBLIONUMBER in :     999$c
+BIBLIOITEMNUMBER in : 999$d
+================================
+Job started: 19:54:35
+skipping authorities
+====================
+exporting biblio 19:54:35 [00:00:00]
+====================
+====================
+REINDEXING zebra 19:54:35 [00:00:00]
+====================
+====================
+Indexing complete: 19:54:35 [00:00:00]
+====================
+CLEANING
+====================
+Zebra configuration information
+================================
+Zebra biblio directory      = /var/lib/koha/bib-test/biblios
+Zebra authorities directory = /var/lib/koha/bib-test/authorities
+Koha directory              = /usr/share/koha/intranet/cgi-bin
+Lockfile                    = /var/lock/koha/bib-test/rebuild/rebuild..LCK
+BIBLIONUMBER in :     999$c
+BIBLIOITEMNUMBER in : 999$d
+================================
+Job started: 19:54:38
+====================
+exporting authority 19:54:38 [00:00:00]
+====================
+====================
+REINDEXING zebra 19:54:38 [00:00:00]
+====================
+skipping biblios
+====================
+Indexing complete: 19:54:38 [00:00:00]
+====================
+CLEANING
+====================
+
+ansible@bib-test:/usr/share/koha/intranet/cgi-bin$ sudo koha-zebra --restart bib-test
+
+ansible@bib-test:/usr/share/koha/intranet/cgi-bin$ sudo koha-plack --restart bib-test
+Stopping Plack daemon for bib-test:.
+Starting Plack daemon for bib-test:.
+
+
+bij deze nieuwe value lukt het wel om van de webinstaller af te komen en is wat ik nodig heb
+25.0506000
+
+UPDATE systempreferences
+    -> SET value='25.0506000' 
+    -> WHERE variable='Version';
+	

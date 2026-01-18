@@ -1,0 +1,46 @@
+- name: Assert Koha instance facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.instance is defined
+      - ansible_local.koha.instance == koha_instance
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing or inconsistent; instance not initialized yet"
+
+- name: Set Koha DB vars from persistent facts
+  set_fact:
+    koha_db_name: "{{ ansible_local.koha.db_name }}"
+    koha_db_user: "{{ ansible_local.koha.db_user }}"
+    koha_db_pass: "{{ ansible_local.koha.db_pass }}"
+  no_log: true
+
+
+
+#- name: Fail if koha-conf.xml is missing
+#  fail:
+#    msg: "koha-conf.xml does not exist for instance {{ koha_instance }}"
+#  when: not koha_conf_stat.stat.exists
+
+#- name: Read Koha database user from koha-conf.xml
+#  command: >
+#    xmlstarlet sel -t -v '/yazgfs/config/user/text()'
+#    /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+#  register: koha_db_user_raw
+#  changed_when: false
+
+#- name: Read Koha database password from koha-conf.xml
+#  command: >
+#    xmlstarlet sel -t -v '/yazgfs/config/pass/text()'
+#    /etc/koha/sites/{{ koha_instance }}/koha-conf.xml
+#  register: koha_db_pass_raw
+#  changed_when: false
+#  no_log: true
+
+#- name: Set Koha database credentials as runtime facts
+#  set_fact:
+#    koha_db_user: "{{ koha_db_user_raw.stdout }}"
+#    koha_db_pass: "{{ koha_db_pass_raw.stdout }}"
+#    cacheable: true
+#  no_log: true

@@ -1,0 +1,26 @@
+- name: Enable required Apache modules for Koha
+  apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - rewrite
+    - cgi
+    - headers
+    - proxy
+    - proxy_http
+
+
+- name: Disable default Apache sites
+  file:
+    path: "/etc/apache2/sites-enabled/{{ item }}"
+    state: absent
+  loop:
+    - 000-default.conf
+    - default-ssl.conf
+
+
+- name: Ensure Apache is running
+  service:
+    name: apache2
+    state: started
+    enabled: true

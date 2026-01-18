@@ -1,0 +1,481 @@
+#!/bin/bash
+
+# ===================================================
+# Master post-install script voor Koha
+# ===================================================
+
+### 1️⃣ Variabelen instellen
+KOHA_INSTANCE="bib-test"
+KOHA_DOMAIN=".marxisme.be"
+KOHA_SUITE="25.05"
+SWAP_FILE="/swapfile"
+SWAP_SIZE="2G"
+
+DB_NAME="koha_bib-test"
+DB_USER="koha_bib-test"
+DB_PASS="d3\`#pO9@*OT9dA|5"   # je koha-passwd output
+
+LIBRARY_CODE="SAF"
+LIBRARY_NAME="Steunpunt Antifacisme"
+ADMIN_USER="kohaadmin"
+ADMIN_PASSWORD="Trotsky1917lenin!"
+ADMIN_CARDNUMBER="1867"
+ADMIN_SURNAME="Marx"
+ADMIN_FIRSTNAME="Karl"
+ADMIN_CATEGORY="S"
+
+CIRC_RULE_MAX_CHECKOUTS=50
+CIRC_RULE_LOAN_PERIOD=14
+CIRC_RULE_UNITS="Days"
+CIRC_RULE_RENEWALS_ALLOWED=10
+CIRC_RULE_RENEWALS_PERIOD=14
+CIRC_RULE_HOLDS_TOTAL=10
+CIRC_RULE_HOLDS_DAILY=10
+CIRC_RULE_HOLDS_PER_RECORD=1
+CIRC_RULE_ONSHELF=1
+
+MANDATORY_SQL_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/mandatory"
+MANDATORY_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory"
+OPTIONAL_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional"
+MARC21_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21"
+
+# ===================================================
+# 2️⃣ Database credentials controleren
+# ===================================================
+echo "Controleer database credentials:"
+sudo xmlstarlet sel -t -v '/yazgfs/config/user/text()' /etc/koha/sites/$KOHA_INSTANCE/koha-conf.xml; echo
+sudo xmlstarlet sel -t -v '/yazgfs/config/pass/text()' /etc/koha/sites/$KOHA_INSTANCE/koha-conf.xml; echo
+
+# ===================================================
+# 3️⃣ Database structuur importeren
+# ===================================================
+echo "Importing kohastructure.sql ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME < /usr/share/koha/intranet/cgi-bin/installer/data/mysql/kohastructure.sql
+
+# ===================================================
+# 4️⃣ Mandatory SQL importeren
+# ===================================================
+for sqlfile in sysprefs.sql subtag_registry.sql auth_val_cat.sql message_transport_types.sql \
+sample_notices_message_attributes.sql sample_notices_message_transports.sql keyboard_shortcuts.sql \
+userflags.sql userpermissions.sql audio_alerts.sql
+do
+  echo "Importing $sqlfile ..."
+  mysql -u $DB_USER -p$DB_PASS $DB_NAME < $MANDATORY_SQL_PATH/$sqlfile
+done
+
+# ===================================================
+# 5️⃣ Handmatige SQL inserts (branches, borrowers, categories, itemtypes, circulation rules, biblio frameworks)
+# ===================================================
+echo "Voeg branch toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO branches (branchcode, branchname, pickup_location, public)
+VALUES ('$LIBRARY_CODE', '$LIBRARY_NAME', 1, 1);
+"
+
+echo "Voeg admin borrower toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO borrowers (cardnumber, surname, firstname, branchcode, categorycode, userid, auth_method, password, flags)
+VALUES ('$ADMIN_CARDNUMBER', '$ADMIN_SURNAME', '$ADMIN_FIRSTNAME', '$LIBRARY_CODE', '$ADMIN_CATEGORY', '$ADMIN_USER', 'password', '\$2a\$08\$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q', 1);
+"
+
+echo "Voeg categories toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO categories (categorycode, description, enrolmentperiod, overduenoticerequired, reservefee, hidelostitems, category_type, default_privacy, checkprevcheckout, can_place_ill_in_opac, can_be_guarantee, enforce_expiry_notice)
+VALUES
+('S','Staff',99,0,0,0,'S','default','inherit',1,0,0),
+('B','Board',99,1,0,0,'P','default','inherit',1,1,0),
+('HB','Home Bound',99,1,0,0,'A','default','inherit',1,0,0),
+('IL','Inter-Library Loan',99,1,0,0,'I','default','inherit',1,0,0),
+('J','Juvenile',99,1,0,0,'C','default','inherit',1,1,0),
+('K','Kid',99,1,0,0,'C','default','inherit',1,1,0),
+('L','Library',99,1,0,0,'I','default','inherit',1,0,0),
+('PT','Patron',99,1,0,0,'A','default','inherit',1,0,0),
+('SC','School',99,1,0,0,'I','default','inherit',1,0,0),
+('ST','Student',99,1,0,0,'A','default','inherit',1,0,0),
+('T','Teacher',99,1,0,0,'P','default','inherit',1,1,0),
+('YA','Young Adult',99,1,0,0,'C','default','inherit',1,1,0);
+"
+
+echo "Voeg itemtypes toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO itemtypes (
+    itemtype, description, rentalcharge, rentalcharge_daily_calendar,
+    rentalcharge_hourly_calendar, notforloan, imageurl, checkinmsgtype, bookable
+)
+VALUES
+('BK', 'Books', 0.000000, 1, 1, 0, 'bridge/book.png', 'message', 0),
+('CF', 'Computer Files', 5.000000, 1, 1, 0, 'bridge/computer_file.png', 'message', 0),
+('CR', 'Continuing Resources', 5.000000, 1, 1, 0, 'bridge/periodical.png', 'message', 0),
+('MP', 'Maps', 5.000000, 1, 1, 0, 'bridge/map.png', 'message', 0),
+('MU', 'Music', 5.000000, 1, 1, 0, 'bridge/sound.png', 'message', 0),
+('MX', 'Mixed Materials', 5.000000, 1, 1, 0, 'bridge/kit.png', 'message', 0),
+('REF', 'Reference', 0.000000, 1, 1, 1, 'bridge/reference.png', 'message', 0),
+('VM', 'Visual Materials', 5.000000, 1, 1, 1, 'bridge/dvd.png', 'message', 0);
+"
+
+
+echo "Voeg circulation rules toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO circulation_rules (rule_name, rule_value)
+VALUES
+('unseen_renewals_allowed', ''),
+('renewalperiod', '14'),
+('opacitemholds', 'N'),
+('article_requests', 'no'),
+('lengthunit', 'days'),
+('suspension_chargeperiod', '1'),
+('reservesallowed', '10'),
+('rentaldiscount', '0'),
+('renewalsallowed', '10'),
+('auto_renew', '0'),
+('chargeperiod_charge_at', '0'),
+('fine', '0'),
+('onshelfholds', '1'),
+('hardduedatecompare', '-1'),
+('holds_per_record', '1'),
+('maxissueqty', '$CIRC_RULE_MAX_CHECKOUTS'),
+('chargeperiod', '0'),
+('firstremind', '0'),
+('finedays', '0'),
+('issuelength', '$CIRC_RULE_LOAN_PERIOD'),
+('cap_fine_to_replacement_price', '0'),
+('holds_per_day', '$CIRC_RULE_HOLDS_DAILY');
+"
+
+echo "Voeg Biblio Frameworks toe ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT INTO biblio_framework (frameworkcode, frameworktext)
+VALUES
+('ACQ', 'Acquisition framework'),
+('AR', 'Models'),
+('BKS', 'Books, Booklets, Workbooks'),
+('CF', 'CD-ROMs, DVD-ROMs, General Online Resources'),
+('FA', 'Fast Add Framework'),
+('IR', 'Binders'),
+('KT', 'Kits'),
+('SER', 'Serials'),
+('SR', 'Audio Cassettes, CDs'),
+('VR', 'DVDs, VHS');
+"
+
+# ===================================================
+# 6️⃣ MARC flavour system preference
+# ===================================================
+echo "Zet MARC flavour op MARC21 ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME -e "
+INSERT IGNORE INTO systempreferences (variable, value) VALUES ('marcflavour', 'MARC21');
+"
+
+# ===================================================
+# 7️⃣ Mandatory YAML import
+# ===================================================
+if ! command -v koha-load-yaml &> /dev/null; then
+    echo "koha-load-yaml command niet gevonden!"
+    exit 1
+fi
+
+echo "=== Mandatory YAML import ==="
+for ymlfile in account_credit_types.yml account_debit_types.yml auth_values.yml authorities_normal_marc21.yml \
+class_sources.yml illbatch_statuses.yml marc21_framework_DEFAULT.yml patron_restriction_types.yml \
+sample_frequencies.yml sample_notices.yml sample_numberpatterns.yml
+do
+    FILE_PATH="$MANDATORY_YAML_PATH/$ymlfile"
+    [ -f "$FILE_PATH" ] && echo "Importing $ymlfile ..." && koha-load-yaml --database $DB_NAME --file "$FILE_PATH" --instance $KOHA_INSTANCE || echo "$FILE_PATH niet gevonden, overslaan."
+done
+
+# ===================================================
+# 8️⃣ Optional YAML import
+# ===================================================
+echo "=== Optional YAML import ==="
+for ymlfile in auth_val.yml csv_profiles.yml marc21_holdings_coded_values.yml marc21_relatorterms.yml \
+parameters.yml patron_atributes.yml patron_categories.yml sample_itemtypes.yml \
+sample_creator_data.yml sample_z3950_servers.yml
+do
+    FILE_PATH="$OPTIONAL_YAML_PATH/$ymlfile"
+    [ -f "$FILE_PATH" ] && echo "Importing $ymlfile ..." && koha-load-yaml --database $DB_NAME --file "$FILE_PATH" --instance $KOHA_INSTANCE || echo "$FILE_PATH niet gevonden, overslaan."
+done
+
+# ===================================================
+# 9️⃣ MARC21 flavours import
+# ===================================================
+echo "=== MARC21 mandatory flavours ==="
+for ymlfile in authorities_normal_marc21.yml marc21_framework_DEFAULT.yml
+do
+    FILE_PATH="$MARC21_PATH/mandatory/$ymlfile"
+    [ -f "$FILE_PATH" ] && echo "Importing $ymlfile ..." && koha-load-yaml --database $DB_NAME --file "$FILE_PATH" --instance $KOHA_INSTANCE || echo "$FILE_PATH niet gevonden, overslaan."
+done
+
+echo "=== MARC21 optional flavours ==="
+for ymlfile in marc21_default_matching_rules.yml marc21_sample_fastadd_framework.yml marc21_simple_bib_frameworks.yml
+do
+    FILE_PATH="$MARC21_PATH/optional/$ymlfile"
+    [ -f "$FILE_PATH" ] && echo "Importing $ymlfile ..." && koha-load-yaml --database $DB_NAME --file "$FILE_PATH" --instance $KOHA_INSTANCE || echo "$FILE_PATH niet gevonden, overslaan."
+done
+
+# ===================================================
+# 🔟 Rebuild Zebra
+# ===================================================
+echo "Rebuilding Zebra index ..."
+sudo koha-rebuild-zebra -f -v $KOHA_INSTANCE
+
+echo "=== Post-install voltooid! ==="
+
+
+
+
+
+
+dit werkt tot nu toe 
+
+
+ansible@bib-test:~$ KOHA_INSTANCE="bib-test"
+KOHA_DOMAIN=".marxisme.be"
+KOHA_SUITE="25.05"
+SWAP_FILE="/swapfile"
+SWAP_SIZE="2G"
+
+DB_NAME="koha_bib-test"
+DB_USER="koha_bib-test"
+DB_PASS="d3\`#pO9@*OT9dA|5"   # je koha-passwd output
+
+LIBRARY_CODE="SAF"
+LIBRARY_NAME="Steunpunt Antifacisme"
+ADMIN_USER="kohaadmin"
+ADMIN_PASSWORD="Trotsky1917lenin!"
+ADMIN_CARDNUMBER="1867"
+ADMIN_SURNAME="Marx"
+ADMIN_FIRSTNAME="Karl"
+ADMIN_CATEGORY="S"
+
+CIRC_RULE_MAX_CHECKOUTS=50
+CIRC_RULE_LOAN_PERIOD=14
+CIRC_RULE_UNITS="Days"
+CIRC_RULE_RENEWALS_ALLOWED=10
+CIRC_RULE_RENEWALS_PERIOD=14
+CIRC_RULE_HOLDS_TOTAL=10
+CIRC_RULE_HOLDS_DAILY=10
+CIRC_RULE_HOLDS_PER_RECORD=1
+CIRC_RULE_ONSHELF=1
+
+MANDATORY_SQL_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/mandatory"
+MANDATORY_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory"
+OPTIONAL_YAML_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional"
+MARC21_PATH="/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21"
+ansible@bib-test:~$ sudo xmlstarlet sel -t -v '/yazgfs/config/user/text()' /etc/koha/sites/$KOHA_INSTANCE/koha-conf.xml; echo
+sudo xmlstarlet sel -t -v '/yazgfs/config/pass/text()' /etc/koha/sites/$KOHA_INSTANCE/koha-conf.xml; echo
+koha_bib-test
+d3`#pO9@*OT9dA|5
+ansible@bib-test:~$ echo "Importing kohastructure.sql ..."
+mysql -u $DB_USER -p$DB_PASS $DB_NAME < /usr/share/koha/intranet/cgi-bin/installer/data/mysql/kohastructure.sql
+Importing kohastructure.sql ...
+ansible@bib-test:~$ MANDATORY_SQL_ORDER=(
+  "sysprefs.sql"
+  "subtag_registry.sql"
+  "auth_val_cat.sql"
+  "message_transport_types.sql"
+  "sample_notices_message_attributes.sql"
+  "sample_notices_message_transports.sql"
+  "keyboard_shortcuts.sql"
+  "userflags.sql"
+  "userpermissions.sql"
+  "audio_alerts.sql"
+)
+
+echo "=== Stap 2: Mandatory SQL importeren ==="
+for sqlfile in "${MANDATORY_SQL_ORDER[@]}"; do
+    echo "Import $sqlfile ..."
+    mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$MANDATORY_SQL_PATH/$sqlfile"
+    echo "[OK] $sqlfile"
+done
+=== Stap 2: Mandatory SQL importeren ===
+Import sysprefs.sql ...
+[OK] sysprefs.sql
+Import subtag_registry.sql ...
+[OK] subtag_registry.sql
+Import auth_val_cat.sql ...
+[OK] auth_val_cat.sql
+Import message_transport_types.sql ...
+[OK] message_transport_types.sql
+Import sample_notices_message_attributes.sql ...
+[OK] sample_notices_message_attributes.sql
+Import sample_notices_message_transports.sql ...
+[OK] sample_notices_message_transports.sql
+Import keyboard_shortcuts.sql ...
+[OK] keyboard_shortcuts.sql
+Import userflags.sql ...
+[OK] userflags.sql
+Import userpermissions.sql ...
+[OK] userpermissions.sql
+Import audio_alerts.sql ...
+[OK] audio_alerts.sql
+
+
+ansible@bib-test:~$ MANDATORY_YAML_ORDER=(
+  "account_credit_types.yml"
+  "account_debit_types.yml"
+  "auth_values.yml"
+  "authorities_normal_marc21.yml"
+  "class_sources.yml"
+  "illbatch_statuses.yml"
+  "marc21_framework_DEFAULT.yml"
+  "patron_restriction_types.yml"
+  "sample_frequencies.yml"
+  "sample_notices.yml"
+  "sample_numberpatterns.yml"
+)
+
+echo "=== Stap 3: Mandatory YAML importeren ==="
+for ymlfile in "${MANDATORY_YAML_ORDER[@]}"; do
+    FILE_PATH="$MANDATORY_YAML_PATH/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+=== Stap 3: Mandatory YAML importeren ===
+Import account_credit_types.yml ...
+[OK]
+Import account_debit_types.yml ...
+[OK]
+Import auth_values.yml ...
+[OK]
+Waarschuwing: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory/authorities_normal_marc21.yml niet gevonden, overslaan.
+Import class_sources.yml ...
+[OK]
+Import illbatch_statuses.yml ...
+[OK]
+Waarschuwing: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/mandatory/marc21_framework_DEFAULT.yml niet gevonden, overslaan.
+Import patron_restriction_types.yml ...
+[OK]
+Import sample_frequencies.yml ...
+[OK]
+Import sample_notices.yml ...
+[OK]
+Import sample_numberpatterns.yml ...
+[OK]
+
+ansible@bib-test:~$ OPTIONAL_YAML_ORDER=(
+  "auth_val.yml"
+  "csv_profiles.yml"
+  "marc21_holdings_coded_values.yml"
+  "marc21_relatorterms.yml"
+  "parameters.yml"
+  "patron_atributes.yml"
+  "patron_categories.yml"
+  "sample_itemtypes.yml"
+  "sample_creator_data.yml"
+  "sample_z3950_servers.yml"
+)
+
+echo "=== Stap 4: Optional YAML importeren ==="
+for ymlfile in "${OPTIONAL_YAML_ORDER[@]}"; do
+    FILE_PATH="$OPTIONAL_YAML_PATH/$ymlfile"
+    if [ -f "$FILE_PATH" ]; then
+        echo "Import $ymlfile ..."
+        sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+    else
+        echo "Waarschuwing: $FILE_PATH niet gevonden, overslaan."
+    fi
+done
+=== Stap 4: Optional YAML importeren ===
+Import auth_val.yml ...
+[OK]
+Import csv_profiles.yml ...
+[OK]
+Import marc21_holdings_coded_values.yml ...
+[OK]
+Import marc21_relatorterms.yml ...
+[OK]
+Import parameters.yml ...
+[OK]
+Waarschuwing: /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional/patron_attributes.yml niet gevonden, overslaan.
+Import patron_categories.yml ...
+[OK]
+Import sample_itemtypes.yml ...
+[OK]
+Import sample_creator_data.yml ...
+[OK]
+Import sample_z3950_servers.yml ...
+[OK]
+
+ansible@bib-test:~$ echo "=== Stap 5: MARC flavour instellen op MARC21 ==="
+mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO systempreferences (variable, value) VALUES ('marcflavour', 'MARC21');
+"
+echo "[OK] MARC flavour ingesteld"
+=== Stap 5: MARC flavour instellen op MARC21 ===
+[OK] MARC flavour ingesteld
+ansible@bib-test:~$echo "=== Stap 6: Zebra index rebuild ===""
+koha-rebuild-zebra -f -v "$KOHA_INSTANCE"
+echo "[OK] Zebra rebuild voltooid"
+
+echo "=== Proof-of-concept Koha MARC21 installatie compleet ✅ ==="
+=== Stap 6: Zebra index rebuild ===
+-bash: koha-rebuild-zebra: command not found
+[OK] Zebra rebuild voltooid
+=== Proof-of-concept Koha MARC21 installatie compleet ✅ ===
+
+
+
+ansible@bib-test:~$ mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO branches (branchcode, branchname, pickup_location, public)
+VALUES ('$LIBRARY_CODE', '$LIBRARY_NAME', 1, 1);
+"
+ansible@bib-test:~$ mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, overduenoticerequired, reservefee, hidelostitems, category_type, default_privacy, checkprevcheckout, can_place_ill_in_opac, can_be_guarantee, enforce_expiry_notice)
+VALUES
+('S','Staff',99,0,0,0,'S','default','inherit',1,0,0);
+"
+ansible@bib-test:~$ mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO borrowers (cardnumber, surname, firstname, branchcode, categorycode, userid, auth_method, password, flags)
+VALUES ('$ADMIN_CARDNUMBER', '$ADMIN_SURNAME', '$ADMIN_FIRSTNAME', '$LIBRARY_CODE', '$ADMIN_CATEGORY', '$ADMIN_USER', 'password', '\$2a\$08\$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q', 1);
+"
+ansible@bib-test:~$ mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO circulation_rules (rule_name, rule_value)
+VALUES
+('maxissueqty', '$CIRC_RULE_MAX_CHECKOUTS'),
+('issuelength', '$CIRC_RULE_LOAN_PERIOD'),
+('renewalsallowed', '$CIRC_RULE_RENEWALS_ALLOWED'),
+('holds_per_day', '$CIRC_RULE_HOLDS_DAILY'),
+('holds_per_record', '$CIRC_RULE_HOLDS_PER_RECORD'),
+('onshelfholds', '$CIRC_RULE_ONSHELF');
+"
+ansible@bib-test:~$ mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "
+INSERT IGNORE INTO biblio_framework (frameworkcode, frameworktext)
+VALUES
+('ACQ', 'Acquisition framework'),
+('AR', 'Models'),
+('BKS', 'Books, Booklets, Workbooks'),
+('CF', 'CD-ROMs, DVD-ROMs, General Online Resources'),
+('FA', 'Fast Add Framework'),
+('IR', 'Binders'),
+('KT', 'Kits'),
+('SER', 'Serials'),
+('SR', 'Audio Cassettes, CDs'),
+('VR', 'DVDs, VHS');
+"
+ansible@bib-test:~$echo "=== Stap 6: Zebra index rebuild ===""
+koha-rebuild-zebra -f -v "$KOHA_INSTANCE"
+echo "[OK] Zebra rebuild voltooid"
+
+echo "=== Proof-of-concept Koha MARC21 installatie compleet ✅ ==="
+=== Stap 6: Zebra index rebuild ===
+-bash: koha-rebuild-zebra: command not found
+[OK] Zebra rebuild voltooid
+=== Proof-of-concept Koha MARC21 installatie compleet ✅ ===
+
+ansible@bib-test:/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/optional$ sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file patron_atributes.yml" bib-test
+
+
+ansible@bib-test:/usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21/mandatory$ for ymlfile in authorities_normal_marc21.yml marc21_framework_DEFAULT.yml
+do
+    FILE_PATH="$MARC21_PATH/mandatory/$ymlfile"
+    [ -f "$FILE_PATH" ] && sudo LC_ALL=C.UTF-8 koha-shell -c "PERL_BADLANG=0 perl /usr/share/koha/bin/load_yaml.pl --load --file $FILE_PATH" $KOHA_INSTANCE && echo "[OK]" || echo "[FOUT]"
+done
+[OK]
+C4::Installer::load_sql returned the following errors while attempting to load /usr/share/koha/intranet/cgi-bin/installer/data/mysql/en/marcflavour/marc21/mandatory/marc21_framework_DEFAULT.yml:
+DBD::mysql::db do failed: Duplicate entry 'ACQ' for key 'PRIMARY' at /usr/share/koha/lib/C4/Installer.pm line 605.
+
+[OK]
