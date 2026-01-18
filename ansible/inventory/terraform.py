@@ -11,6 +11,11 @@ Toegevoegde waarde voor dit project:
 
 Dit script wordt typisch aangeroepen door Ansible met:
   ansible-inventory -i inventory.py --list
+
+Het script leest dus: terraform/terraform.tfstate 
+Dit is gegenereerd door de laatst uitgevoerde terraform apply
+Momenteel heb ik maar een default workspace
+
 """
 
 import json
