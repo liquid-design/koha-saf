@@ -1,0 +1,23 @@
+# Patron categorieën
+# S  = Staff       (medewerkers, geen uitleentermijn)
+# A  = Adult       (volwassen lezer, standaard)
+# J  = Juvenile    (jeugd, korte inschrijftermijn)
+
+koha_patron_categories:
+  - code: S
+    description: Medewerker
+    enrolment_period: 0
+    upper_age_limit: 999
+    category_type: S
+
+  - code: A
+    description: Volwassene
+    enrolment_period: 365
+    upper_age_limit: 999
+    category_type: A
+
+  - code: J
+    description: Jeugd
+    enrolment_period: 365
+    upper_age_limit: 17
+    category_type: C

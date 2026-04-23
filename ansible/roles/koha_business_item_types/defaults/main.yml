@@ -1,0 +1,23 @@
+# Item types
+# Actief: alleen BK (boek) want de collectie bestaat uitsluitend uit boeken.
+# DVD en CD staan in commentaar voor toekomstig gebruik.
+
+koha_item_types:
+  - code: BK
+    description: Boek
+    loan_period: 14
+    renewals: 2
+    notforloan: 0
+
+# Uitcommentariëren om te activeren:
+#  - code: DVD
+#    description: DVD
+#    loan_period: 7
+#    renewals: 1
+#    notforloan: 0
+
+#  - code: CD
+#    description: CD
+#    loan_period: 7
+#    renewals: 1
+#    notforloan: 0

@@ -1,0 +1,27 @@
+**Prod — bib.marxisme.be**
+
+| URL | Functie |
+|-----|---------|
+| https://bib.marxisme.be | OPAC (lezers) |
+| https://bib-intra.marxisme.be | Intranet (medewerkers) |
+
+**Test — bib-test.marxisme.be**
+
+| URL | Functie |
+|-----|---------|
+| https://bib-test.marxisme.be | OPAC (lezers) |
+| https://bib-test-intra.marxisme.be | Intranet (medewerkers) |
+
+---
+
+**Accounts** — wachtwoord voor alle accounts: `Koha1234!`
+
+| Username | Naam | Rol |
+|----------|------|-----|
+| `kohaadmin` | Karl Marx | Superlibrarian |
+| `bibliothecaris` | Rosa Luxemburg | Superlibrarian |
+| `catalogisator` | Friedrich Engels | Superlibrarian |
+
+---
+
+**Nog te fixen:** de `bib` prod server heeft nog een handmatige `a2dissite` nodig die we zonet bespraken. En daarna passen we de `koha_apache-tls-finalize` role aan zodat `bib-le-ssl.conf` ook automatisch gedisabled wordt bij een herinstallatie.

@@ -1,9 +1,9 @@
 droplets = {
   "koha-saf-prod" = {
-    name   = "bib.marxisme.be"
-    region = "ams3"
-    size   = "s-2vcpu-2gb"
-    image  = "debian-12-x64"
+    name      = "bib.marxisme.be"
+    region    = "ams3"
+    size      = "s-2vcpu-2gb"
+    image     = "debian-12-x64"
     tags      = ["koha", "prod"]
     user_data = <<-EOF
     #cloud-config
@@ -25,10 +25,10 @@ droplets = {
 
 
   "koha-saf-test" = {
-    name   = "bib-test.marxisme.be"
-    region = "ams3"
-    size   = "s-2vcpu-2gb"
-    image  = "debian-12-x64"
+    name      = "bib-test.marxisme.be"
+    region    = "ams3"
+    size      = "s-2vcpu-2gb"
+    image     = "debian-12-x64"
     tags      = ["koha", "test"]
     user_data = <<-EOF
     #cloud-config

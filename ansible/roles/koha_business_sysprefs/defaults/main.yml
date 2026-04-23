@@ -1,0 +1,65 @@
+# Koha systeempreferenties
+# Ingedeeld per domein. Pas waarden aan per omgeving via group_vars.
+
+koha_sysprefs:
+
+  # --- URLs ---
+  # Moet overeenkomen met de Apache vhost domeinen
+  - pref: OPACBaseURL
+    value: "https://{{ koha_opac_domain }}"
+
+  - pref: staffClientBaseURL
+    value: "https://{{ koha_intranet_domain }}"
+
+  # --- Taal ---
+  # Koha toont de interface in deze taal
+  - pref: language
+    value: "nl"
+
+  - pref: opaclanguages
+    value: "nl"
+
+  - pref: opaclanguagesdisplay
+    value: "0"
+
+  # --- Bibliotheek identiteit ---
+  - pref: LibraryName
+    value: "Steunpunt Antifacisme"
+
+  - pref: OpacMainUserBlock
+    value: "Welkom bij de bibliotheek van het Steunpunt Antifascisme."
+
+  # --- OPAC instellingen ---
+  # Lezers kunnen zelf inloggen op de OPAC
+  - pref: opacuserlogin
+    value: "1"
+
+  # Anonieme zoekopdrachten toegestaan op OPAC
+  - pref: OpacPublic
+    value: "1"
+
+  # --- Catalogus ---
+  # MARC flavour: MARC21 (standaard voor nieuwe installaties)
+  - pref: marcflavour
+    value: "MARC21"
+
+  # Koha genereert automatisch barcode voor nieuwe items
+  - pref: autoBarcode
+    value: "incremental"
+
+  # --- Uitleen ---
+  # Waarschuwing tonen als lezer te laat items heeft
+  - pref: OverduesBlockCirc
+    value: "ask"
+
+  # Uitlenen toestaan als lezer al max aantal items heeft: blokkeren
+  - pref: maxreserves
+    value: "50"
+
+  # --- Privacy ---
+  # Uitleengeschiedenis bewaren (0 = nooit, 1 = standaard aan, 2 = altijd)
+  - pref: AnonymousPatron
+    value: "0"
+
+  - pref: StoreLastBorrower
+    value: "0"

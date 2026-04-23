@@ -1,0 +1,41 @@
+# ============================================================================
+# FASE 1: Apache modules + HTTP-only vhosts
+# ----------------------------------------------------------------------------
+# Moet klaar zijn vóór certbot draait, zodat de ACME HTTP-01 challenge
+# op port 80 afgehandeld kan worden.
+# ============================================================================
+
+- name: Enable apache modules
+  community.general.apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - ssl
+    - rewrite
+    - headers
+  notify: reload apache
+
+- name: Deploy tijdelijke HTTP-only vhosts (voor certbot challenge)
+  copy:
+    dest: "/etc/apache2/sites-available/{{ item }}.conf"
+    content: |
+      <VirtualHost *:80>
+        ServerName {{ item }}
+        DocumentRoot /var/www/html
+      </VirtualHost>
+  loop:
+    - "{{ koha_opac_domain }}"
+    - "{{ koha_intranet_domain }}"
+  notify: reload apache
+
+- name: Enable sites
+  command: "a2ensite {{ item }}.conf"
+  args:
+    creates: "/etc/apache2/sites-enabled/{{ item }}.conf"
+  loop:
+    - "{{ koha_opac_domain }}"
+    - "{{ koha_intranet_domain }}"
+  notify: reload apache
+
+- name: Flush handlers zodat Apache herlaadt vóór certbot
+  meta: flush_handlers

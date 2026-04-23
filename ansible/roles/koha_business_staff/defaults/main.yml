@@ -1,0 +1,33 @@
+# Medewerkers
+# Wachtwoorden zijn bcrypt hashes.
+# Huidig wachtwoord voor alle accounts: Koha1234!
+# Hash: $2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q
+#
+# Permissie flags (bitmask):
+#   1         = superlibrarian (alles)
+#   4         = catalogue      (zoeken en raadplegen)
+#   2048      = circulate      (uitlenen en terugbrengen)
+#   4096      = cataloguing    (boeken invoeren)
+#   2048+4096 = 6144           (balie + catalogiseren)
+#
+# Voor POC krijgen alle medewerkers superlibrarian (flags: 1).
+# Verfijn dit per medewerker voor productie.
+
+koha_staff_users:
+  - username: bibliothecaris
+    cardnumber: "1001"
+    firstname: Rosa
+    surname: Luxemburg
+    category: S
+    branch: SAF
+    flags: 1
+    password_hash: "$2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q"
+
+  - username: catalogisator
+    cardnumber: "1002"
+    firstname: Friedrich
+    surname: Engels
+    category: S
+    branch: SAF
+    flags: 1
+    password_hash: "$2a$08$xfMHPQGOvK5e.h7pBcUwi.7HOZfDqCu18NcOZxuPOJc9oqcz3B90q"

@@ -1,0 +1,24 @@
+- name: Install certbot
+  apt:
+    name:
+      - certbot
+      - python3-certbot-apache
+    state: present
+
+- name: Obtain certificates via certbot --apache
+  command: >
+    certbot --apache
+    -n
+    --agree-tos
+    --email {{ letsencrypt_email }}
+    -d {{ koha_opac_domain }}
+    -d {{ koha_intranet_domain }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ koha_opac_domain }}"
+  notify: reload apache
+
+- name: Zorg dat apache2 actief en enabled is
+  service:
+    name: apache2
+    state: started
+    enabled: true

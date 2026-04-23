@@ -1,0 +1,29 @@
+<VirtualHost *:80>
+ ServerName {{ koha_opac_domain }}
+ RewriteEngine On
+ RewriteRule ^ https://{{ koha_opac_domain }}%{REQUEST_URI} [L,R=301]
+</VirtualHost>
+
+<VirtualHost *:443>
+ ServerName {{ koha_opac_domain }}
+
+ SSLEngine on
+ SSLCertificateFile /etc/letsencrypt/live/{{ koha_opac_domain }}/fullchain.pem
+ SSLCertificateKeyFile /etc/letsencrypt/live/{{ koha_opac_domain }}/privkey.pem
+
+ Define instance "{{ koha_instance }}"
+
+ Include /etc/koha/apache-shared.conf
+ Include /etc/koha/apache-shared-opac-plack.conf
+ Include /etc/koha/apache-shared-opac.conf
+
+ SetEnv KOHA_CONF "/etc/koha/sites/{{ koha_instance }}/koha-conf.xml"
+ AssignUserID {{ koha_user }} {{ koha_user }}
+
+ ErrorLog /var/log/koha/{{ koha_instance }}/opac-error.log
+ CustomLog /var/log/koha/{{ koha_instance }}/opac-access.log combined
+
+ Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+ Header always set X-Frame-Options SAMEORIGIN
+ Header always set X-Content-Type-Options nosniff
+</VirtualHost>

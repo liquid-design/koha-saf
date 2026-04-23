@@ -1,0 +1,21 @@
+# ============================================================================
+# 09-koha-tls.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# TLS certificaat en secure apache configuratie.
+#
+# Volgorde is kritiek:
+#   1. koha_apache-tls          → HTTP-only vhosts deployen (ACME challenge)
+#   2. certbot                  → certs aanvragen via Let's Encrypt
+#   3. koha_apache-tls-finalize → definitieve TLS vhosts deployen
+# ============================================================================
+
+- name: Koha Apache tls configuratie
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - koha_apache-tls
+    - certbot
+    - koha_apache-tls-finalize

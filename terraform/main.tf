@@ -22,11 +22,11 @@ variable "do_token" {
 
 variable "droplets" {
   type = map(object({
-    name   : string
+    name : string
     region : string
-    size   : string
-    image  : string
-    tags   : list(string)
+    size : string
+    image : string
+    tags : list(string)
     user_data : string
   }))
   description = "Droplets to create"
@@ -43,7 +43,7 @@ resource "digitalocean_droplet" "droplet" {
   size   = each.value.size
   image  = each.value.image
 
-  ssh_keys   = []   # hier kun je later je SSH keys toevoegen
+  ssh_keys   = [] # hier kun je later je SSH keys toevoegen
   backups    = true
   ipv6       = false
   monitoring = true

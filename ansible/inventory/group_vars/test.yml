@@ -8,3 +8,9 @@ koha_domain: ".marxisme.be"
 # this is the subdomain
 koha_instance: "bib-test"
 koha_suite: "25.05"
+
+# This is for Apache-tls
+koha_opac_domain: bib-test.marxisme.be
+koha_intranet_domain: bib-test-intra.marxisme.be
+letsencrypt_email: sander@liquid-design.be
+koha_user: bib-test-koha

@@ -1,0 +1,57 @@
+# ============================================================================
+# ROLE: koha_business_staff
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Aanmaken van medewerkers met login en permissies.
+#
+# Doet wel:
+# - aanmaken staff accounts
+# - instellen wachtwoord en permissies
+#
+# Doet niet:
+# - admin superuser (zie koha_business_admin)
+# - lezersaccounts (zie koha_business_patron_categories)
+# ============================================================================
+
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+- name: Ensure staff patron exists
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO borrowers
+        (cardnumber, surname, firstname, categorycode, branchcode, userid)
+      VALUES
+        ('{{ item.cardnumber }}',
+         '{{ item.surname }}',
+         '{{ item.firstname }}',
+         '{{ item.category }}',
+         '{{ item.branch }}',
+         '{{ item.username }}')
+      ON DUPLICATE KEY UPDATE
+        surname   = VALUES(surname),
+        firstname = VALUES(firstname);
+  loop: "{{ koha_staff_users }}"
+
+- name: Ensure staff credentials and permissions
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      UPDATE borrowers
+      SET
+        auth_method = 'password',
+        password    = '{{ item.password_hash }}',
+        flags       = {{ item.flags }}
+      WHERE userid = '{{ item.username }}';
+  loop: "{{ koha_staff_users }}"

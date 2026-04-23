@@ -1,0 +1,38 @@
+# ============================================================================
+# ROLE: koha_business_item_types
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Definieert item types (materiaalsoorten) binnen Koha.
+#
+# Doet wel:
+# - aanmaken en bijwerken van item types
+# - instellen van standaard uitleentermijn per type
+#
+# Doet niet:
+# - circulation rules (zie koha_business_circulation)
+# ============================================================================
+
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+- name: Ensure item types
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO itemtypes
+        (itemtype, description, rentalcharge, notforloan,
+         defaultreplacecost, processfee)
+      VALUES
+        ('{{ item.code }}', '{{ item.description }}', 0, {{ item.notforloan }}, 0, 0)
+      ON DUPLICATE KEY UPDATE
+        description    = VALUES(description),
+        notforloan     = VALUES(notforloan);
+  loop: "{{ koha_item_types }}"

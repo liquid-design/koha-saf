@@ -1,0 +1,34 @@
+# ============================================================================
+# ROLE: koha_business_sysprefs
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Instellen van Koha systeempreferenties die de werking van de installatie
+# bepalen (URLs, taal, catalogus, uitleen, privacy).
+#
+# Doet wel:
+# - toepassen van systempreferences via SQL
+#
+# Doet niet:
+# - business logica (circulation rules, item types)
+# - technische configuratie (koha-conf.xml)
+# ============================================================================
+
+- name: Assert Koha runtime facts exist
+  assert:
+    that:
+      - ansible_local.koha is defined
+      - ansible_local.koha.db_name is defined
+      - ansible_local.koha.db_user is defined
+      - ansible_local.koha.db_pass is defined
+    fail_msg: "Koha runtime facts are missing; instance not initialized yet"
+
+- name: Ensure system preferences
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO systempreferences (variable, value)
+      VALUES ('{{ item.pref }}', '{{ item.value }}')
+      ON DUPLICATE KEY UPDATE value = VALUES(value);
+  loop: "{{ koha_sysprefs }}"

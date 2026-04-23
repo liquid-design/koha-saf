@@ -1,0 +1,32 @@
+# ============================================================================
+# FASE 2: Definitieve TLS vhosts
+# ----------------------------------------------------------------------------
+# Draait NA certbot. Overschrijft de tijdelijke HTTP vhosts met de
+# volledige Koha TLS configuratie inclusief cert paden.
+# Disabled ook de overbodige sites die door koha-create en certbot
+# automatisch aangemaakt worden.
+# ============================================================================
+
+- name: Deploy definitieve Koha TLS vhosts
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/apache2/sites-available/{{ item.dest }}"
+  loop:
+    - { src: koha-opac.conf.j2, dest: "{{ koha_opac_domain }}.conf" }
+    - { src: koha-intranet.conf.j2, dest: "{{ koha_intranet_domain }}.conf" }
+  notify: reload apache
+
+- name: Disable overbodige sites (koha-create + certbot automatisch)
+  command: "a2dissite {{ item }}"
+  args:
+    removes: "/etc/apache2/sites-enabled/{{ item }}"
+  loop:
+    - "{{ koha_instance }}.conf"
+    - "{{ koha_opac_domain }}-le-ssl.conf"
+    - "{{ koha_intranet_domain }}-le-ssl.conf"
+  notify: reload apache
+
+- name: Reload apache
+  service:
+    name: apache2
+    state: reloaded

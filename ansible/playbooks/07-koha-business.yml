@@ -6,9 +6,13 @@
 #
 # Scope:
 # - libraries
+# - patron categorieën
+# - item types
 # - circulation rules
 # - authorised values
-# - admin accounts
+# - systeempreferenties
+# - staff accounts
+# - admin account
 # ============================================================================
 
 - name: Koha business configuration
@@ -20,11 +24,23 @@
     # Definieert bibliotheken en branches
     - koha_business_libraries
 
+    # Lezerscategorieën (Staff, Volwassene, Jeugd)
+    - koha_business_patron_categories
+
+    # Materiaalsoorten (Boek; DVD en CD uitgecommentarieerd)
+    - koha_business_item_types
+
     # Configureert authorised values
     - koha_business_authorised_values
 
-    # Beheeraccounts en permissies
-    - koha_business_admin
-
-    # Circulation gaat over uitleenregels
+    # Uitleenregels en circulatiebeleid
     - koha_business_circulation
+
+    # Systeempreferenties (URLs, taal, catalogus, privacy)
+    - koha_business_sysprefs
+
+    # Medewerkers met login en permissies
+    - koha_business_staff
+
+    # Beheeraccounts en superlibrarian permissies
+    - koha_business_admin
