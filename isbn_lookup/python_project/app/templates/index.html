@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <title>ISBN Lookup</title>
+    <script>
+      // Focus het ISBN-veld bij laden
+      function focusInput() {
+        const input = document.getElementById('isbn');
+        if (input) input.focus();
+      }
+
+      // Focus opnieuw na submit
+      window.onload = focusInput;
+    </script>
+  </head>
+  <body onload="focusInput()">
+    <h1>ISBN Lookup</h1>
+
+    <form method="post" action="/" onsubmit="setTimeout(focusInput, 100)">
+      <label for="isbn">Voer een ISBN in:</label><br>
+      <input type="text" id="isbn" name="isbn" required autocomplete="off" autofocus>
+      <button type="submit">Verstuur</button>
+    </form>
+
+    {% if isbn %}
+      <hr>
+      <h2>Resultaat voor: {{ isbn }}</h2>
+	
+	{% set category_list = [
+  	"Algemene Geschiedenis",
+  	"Geschiedenis Belgische Arbeidersbeweging",
+  	"Britse Arbeidersbeweging",
+  	"Franse Arbeidersbeweging",
+  	"Nederlandse Arbeidersbeweging",
+  	"Marxisme",
+ 	"Anarchisme",
+  	"Biografieën Nederlandstalig",
+ 	"Biografieën Franstalig",
+  	"Biografieën Engelstalig"
+	] %}
+
+	<form method="post" action="/save">
+	<label for="category">Categorie:</label><br>
+	<select id="category" name="category">
+  	  {% for cat in category_list %}
+    		<option value="{{ cat }}"
+     	 	  {% if book.categories and (cat in book.categories) %}selected{% endif %}>
+      	  	  {{ cat }}
+    		</option>
+  	  {% endfor %}
+	</select>
+  	  <input type="hidden" name="isbn" value="{{ isbn }}">
+  	  <button type="submit">MARCXML opslaan</button>
+	</form>
+      {% if book %}
+        <ul>
+          {% for key, value in book.items() %}
+            <li><strong>{{ key }}:</strong>
+              {% if value is iterable and value is not string %}
+                {{ value | join(', ') }}
+              {% else %}
+                {{ value }}
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p><em>Geen gegevens gevonden.</em></p>
+      {% endif %}
+    {% endif %}
+
+    {% if marcfile %}
+      <p style="color: green; font-weight: bold;">
+        MARCXML-bestand aangemaakt: {{ marcfile }}
+      </p>
+    {% endif %}
+  </body>
+</html>

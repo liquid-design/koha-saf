@@ -1,0 +1,42 @@
+from flask import current_app as app, render_template, request
+import isbn_lookup
+import os
+import shutil
+import pwd
+import grp
+
+UPLOAD_DIR = "/var/lib/koha/bib/uploads"
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    book_data = None
+    isbn = None
+    marcfile = None
+
+    if request.method == "POST":
+        isbn = request.form.get("isbn", "").strip()
+        if isbn:
+            # Ophalen van gecombineerde data
+            book_data = isbn_lookup.lookup_isbn(isbn)
+            if book_data:
+                marcfile = f"{isbn}.xml"
+                temp_path = f"{isbn}.xml"
+                output_path = os.path.join(UPLOAD_DIR, marcfile)
+
+                # MARCXML-bestand aanmaken
+                isbn_lookup.write_marcxml(book_data, isbn)
+
+                # Verplaatsen naar Koha-uploadmap
+                if not os.path.exists(output_path) and os.path.exists(temp_path):
+                    shutil.move(temp_path, output_path)
+
+                # ✅ Bestandsrechten instellen
+                try:
+                    uid = pwd.getpwnam("bib-koha").pw_uid
+                    gid = grp.getgrnam("bib-koha").gr_gid
+                    os.chown(output_path, uid, gid)
+                    os.chmod(output_path, 0o644)
+                except Exception as e:
+                    print(f"⚠️ Waarschuwing: kon rechten niet instellen voor {output_path}: {e}")
+
+    return render_template("index.html", isbn=isbn, book=book_data, marcfile=marcfile)
