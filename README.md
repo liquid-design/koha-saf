@@ -1,138 +1,124 @@
-# README – Koha SAF Project
+# koha-saf
 
-## 1. Overzicht
+**Infrastructure as Code voor een volledig geautomatiseerde Koha ILS-installatie op DigitalOcean.**
 
-Dit repository bevat de **Infrastructure as Code (Terraform)** en **Configuration Management (Ansible)** voor het automatisch uitrollen en configureren van een **Koha ILS-omgeving**.
-
-De huidige README reflecteert de **gerefactorde architectuur** zoals aanwezig in deze repository en vervangt eerdere documentatie.
-
-Doelstellingen:
-
-* herhaalbare en voorspelbare Koha-installaties
-* duidelijke lifecycle-fases
-* strikte scheiding tussen infrastructuur, techniek en bibliotheeklogica
-* geschikt voor teamgebruik en verdere CI/CD-integratie
-* CI/CD is bewust nog niet geïmplementeerd; de huidige structuur is hier wel op voorbereid.
+Koha is een open-source geïntegreerd bibliotheeksysteem (ILS). Dit project automatiseert de volledige lifecycle — van cloudinfrastructuur tot bibliotheeklogica — zonder handmatige stappen via de webinterface.
 
 ---
 
-## 2. Repository-structuur (high level)
+## Inhoud
 
-```text
-koha-saf/
-├── terraform/
-│   ├── terraform.tfvars
-│   ├── secrets/
-│   └── *.tf
-│
-├── ansible/
-│   ├── ansible.cfg
-│   ├── inventory/
-│   │   └── group_vars/
-│   │       └── all/
-│   │           └── *.yml
-│   │
-│   ├── playbooks/
-│   │   ├── 01-bootstrap.yml
-│   │   ├── 02-koha-install.yml
-│   │   ├── 03-koha-apache.yml
-│   │   ├── 04-koha-instance.yml
-│   │   ├── 05-koha-config.yml
-│   │   ├── 06-koha-postinstall.yml
-│   │   ├── 07-koha-business.yml
-│   │   └── 08-koha-finalize.yml
-│   │
-│   └── roles/
-│       ├── system_apt/
-│       ├── system_swap/
-│       ├── system_hardening_users/
-│       ├── locale_fix/
-│       ├── koha_repo/
-│       ├── koha_install/
-│       ├── koha_apache/
-│       ├── koha_instance/
-│       ├── koha_config/
-│       ├── koha_persist_facts/
-│       ├── koha_postinstall_db/
-│       ├── koha_postinstall_python/
-│       ├── koha_postinstall_yaml/
-│       ├── koha_business_libraries/
-│       ├── koha_business_authorised_values/
-│       ├── koha_business_admin/
-│       ├── koha_business_circulation/
-│       └── koha_finalize/
-│
-└── README.md
+- [Overzicht](#overzicht)
+- [Vereisten](#vereisten)
+- [Snel starten](#snel-starten)
+- [Architectuur](#architectuur)
+- [Terraform](#terraform)
+- [Ansible](#ansible)
+- [ISBN Scan Applicatie](#isbn-scan-applicatie)
+- [Omgevingen en accounts](#omgevingen-en-accounts)
+- [Configuratie aanpassen](#configuratie-aanpassen)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Overzicht
+
+Het project rolt twee identieke omgevingen uit (productie + test) en configureert ze volledig:
+
+- **Terraform** — DigitalOcean Droplets provisioneren
+- **Ansible** — OS, Koha, Apache, TLS en bibliotheeklogica configureren
+- **Flask ISBN scanner** — webapplicatie voor het inscannen van boeken via ISBN-barcode
+
+```
+handscanner → https://scan.marxisme.be → Flask → MARCXML → Koha
+```
+
+De Koha webinstaller wordt volledig omzeild via geautomatiseerde SQL- en YAML-initialisatie.
+
+---
+
+## Vereisten
+
+| Tool | Versie |
+|------|--------|
+| Terraform | ≥ 1.0 |
+| Ansible | ≥ 2.12 |
+| Python | ≥ 3.10 |
+| DigitalOcean account | — |
+
+Lokaal vereist voor de Flask app:
+
+```bash
+pip install flask pymarc requests rich
 ```
 
 ---
 
-## 3. Terraform
+## Snel starten
 
-Terraform vormt de **fundamentele laag** van dit project en is de **single source of truth** voor alles wat met infrastructuur te maken heeft.
+### 1 — Infrastructuur uitrollen
 
-Terraform is verantwoordelijk voor:
+```bash
+cd terraform
+terraform init
+terraform plan  -var-file=terraform.tfvars -var-file=secrets/secrets.tfvars
+terraform apply -var-file=terraform.tfvars -var-file=secrets/secrets.tfvars
+```
 
-- provisioning van infrastructuur (bijv. DigitalOcean droplets)
-- basis netwerk- en OS-instellingen
-- het vastleggen van infrastructuurstatus in state
-- het beschikbaar maken van infrastructuurgegevens voor Ansible via outputs
+### 2 — Koha installeren en configureren
 
-Er worden **geen infrastructuurgegevens hardcoded** in Ansible; alle hostinformatie is afgeleid van Terraform.
+```bash
+cd ansible
+ansible-playbook -i inventory/terraform.py playbooks/01-bootstrap.yml
+ansible-playbook -i inventory/terraform.py playbooks/02-koha-install.yml
+ansible-playbook -i inventory/terraform.py playbooks/03-koha-apache.yml
+ansible-playbook -i inventory/terraform.py playbooks/04-koha-instance.yml
+ansible-playbook -i inventory/terraform.py playbooks/05-koha-config.yml
+ansible-playbook -i inventory/terraform.py playbooks/06-koha-postinstall.yml
+ansible-playbook -i inventory/terraform.py playbooks/07-koha-business.yml
+ansible-playbook -i inventory/terraform.py playbooks/08-koha-finalize.yml
+ansible-playbook -i inventory/terraform.py playbooks/09-koha-tls.yml
+```
 
----
-
-Helder — je hebt gelijk 👍
-Hieronder staat **het volledige Terraform-hoofdstuk (incl. subhoofdstukken 3.1 t/m 3.6)** als **pure Markdown**, **zonder** een omhullende code-block.
-Dit kun je **direct copy-pasten in `README.md`** en het rendert correct.
-
----
-
-## 3. Terraform
-
-Terraform vormt de **fundamentele laag** van dit project en is de **single source of truth** voor alles wat met infrastructuur te maken heeft.
-
-Terraform is verantwoordelijk voor:
-
-* provisioning van infrastructuur (bijv. DigitalOcean droplets)
-* basis netwerk- en OS-instellingen
-* het vastleggen van infrastructuurstatus in state
-* het beschikbaar maken van infrastructuurgegevens voor Ansible via outputs
-
-Er worden **geen infrastructuurgegevens hardcoded** in Ansible; alle hostinformatie is afgeleid van Terraform.
+Alle playbooks zijn idempotent en kunnen opnieuw worden uitgevoerd zonder bijwerkingen.
 
 ---
 
-### 3.1 Terraform als single source of truth
+## Architectuur
 
-Alle informatie over servers, IP-adressen, regio’s en omgevingen bestaat **uitsluitend** in Terraform:
+```
+┌─────────────────────────────────────────────────────────┐
+│  Laag             Tool              Verantwoordelijkheid │
+├─────────────────────────────────────────────────────────┤
+│  Infrastructuur   Terraform         Droplets, netwerk    │
+│  Configuratie     Ansible           OS, Koha, TLS        │
+│  Applicatie       Koha 25.05        Bibliotheeksysteem   │
+│  Catalogisering   Flask + pymarc    ISBN → MARCXML       │
+└─────────────────────────────────────────────────────────┘
+```
 
-* `main.tf` definieert *wat* er bestaat
-* `terraform.tfvars` en `secrets.tfvars` bepalen *hoe*
-* `terraform.tfstate` beschrijft *wat er daadwerkelijk is uitgerold*
+**Servers:** Debian 12, 2 vCPU / 2 GB RAM, regio `ams3` (Amsterdam)
 
-Deze state is leidend voor de rest van het project.
+**Netwerkflow:**
+```
+Internet → Apache (poort 443) → Plack (UNIX socket) → Koha
+                              ↗
+Flask (poort 5000) ──────────
+```
+
+**Inventory:** Ansible gebruikt geen statische hosts. `inventory/terraform.py` leest de Terraform state en genereert de inventory dynamisch. Omgevingen worden bepaald door DigitalOcean tags (`prod`, `test`).
 
 ---
 
-### 3.2 Terraform outputs als contract
+## Terraform
 
-Terraform exposeert expliciet infrastructuurinformatie via outputs, onder andere:
-
-* droplet naam
-* publiek IP-adres
-* regio
-* tags (bijv. `test`, `prod`)
-
-Deze outputs vormen een **contract** tussen Terraform en Ansible.
-
-Een vereenvoudigd voorbeeld:
+Terraform is de **single source of truth** voor infrastructuur. Alle hostinformatie — IP-adressen, regio's, tags — is afkomstig uit Terraform en wordt nooit hardcoded in Ansible.
 
 ```hcl
+# Voorbeeld output (main.tf)
 output "droplets" {
   value = {
-    for k, d in digitalocean_droplet.droplet :
-    k => {
+    for k, d in digitalocean_droplet.droplet : k => {
       name   = d.name
       ip     = d.ipv4_address
       region = d.region
@@ -142,65 +128,7 @@ output "droplets" {
 }
 ```
 
-Ansible consumeert deze gegevens, maar **definieert ze niet zelf**.
-
----
-
-### 3.3 Koppeling met Ansible via `terraform.py`
-
-De koppeling tussen Terraform en Ansible gebeurt via een **dynamic inventory script**:
-
-```
-ansible/inventory/terraform.py
-```
-
-Dit script:
-
-* voert `terraform output -json` uit in de `terraform/` directory
-* leest rechtstreeks uit `terraform.tfstate`
-* zet Terraform outputs om naar een Ansible inventory
-* maakt automatisch groepen aan (`prod`, `test`) op basis van Terraform tags
-
-Hierdoor:
-
-* zijn er **geen statische inventory-bestanden**
-* kan infrastructuur niet “vergeten” worden in Ansible
-* blijft Terraform leidend over omgevingen
-
-Voorbeeldgebruik:
-
-```bash
-ansible-inventory -i inventory/terraform.py --list
-ansible-playbook playbooks/07-koha-business.yml -l test
-```
-
----
-
-### 3.4 Terraform workflow
-
-Terraform wordt uitgevoerd vóór Ansible.
-
-```bash
-cd terraform
-terraform init
-terraform plan \
-  -var-file=terraform.tfvars \
-  -var-file=secrets/secrets.tfvars
-terraform apply \
-  -var-file=terraform.tfvars \
-  -var-file=secrets/secrets.tfvars
-```
-
-Na een succesvolle `apply` is de infrastructuur:
-
-* beschikbaar voor Ansible
-* automatisch opgenomen in de dynamic inventory
-
----
-
-### 3.5 Beheer en lifecycle
-
-Selectief verwijderen of aanpassen van resources gebeurt **altijd via Terraform**:
+Infrastructuur selectief aanpassen of verwijderen:
 
 ```bash
 terraform state list
@@ -210,112 +138,249 @@ terraform destroy \
   -target='digitalocean_droplet.droplet["koha-saf-test"]'
 ```
 
-Ansible mag ervan uitgaan dat:
+---
 
-* hosts bestaan
-* IP-adressen correct zijn
-* tags kloppen
+## Ansible
 
-Als dat niet zo is, is Terraform de plek waar dit wordt opgelost.
+### Playbook volgorde
 
+| # | Playbook | Rollen |
+|---|----------|--------|
+| 01 | `bootstrap` | `locale_fix`, `system_hardening_users`, `system_apt`, `system_swap`, `koha_persist_facts` |
+| 02 | `koha-install` | `koha_repo`, `koha_install` |
+| 03 | `koha-apache` | `koha_apache` |
+| 04 | `koha-instance` | `koha_instance` |
+| 05 | `koha-config` | `koha_config` |
+| 06 | `koha-postinstall` | `koha_postinstall_python`, `koha_postinstall_db`, `koha_postinstall_yaml` |
+| 07 | `koha-business` | `koha_business_libraries`, `koha_business_patron_categories`, `koha_business_item_types`, `koha_business_authorised_values`, `koha_business_circulation`, `koha_business_sysprefs`, `koha_business_staff`, `koha_business_admin` |
+| 08 | `koha-finalize` | `koha_finalize` |
+| 09 | `koha-tls` | `koha_apache-tls`, `certbot`, `koha_apache-tls-finalize` |
+
+### Variabelen
+
+Alle aanpasbare waarden staan in `defaults/main.yml` per role. Omgevingsspecifieke waarden staan in `inventory/group_vars/`:
+
+```
+group_vars/
+├── all/
+│   ├── koha.yml      # Koha versie en repository URL
+│   └── system.yml    # Swap grootte en swappiness
+├── prod.yml          # Domeinen, instance naam, e-mail (prod)
+└── test.yml          # Domeinen, instance naam, e-mail (test)
+```
+
+### Facts persistentie
+
+`koha-create` genereert willekeurige databasecredentials. Deze worden uitgelezen uit `koha-conf.xml` en opgeslagen als Ansible local facts in `/etc/ansible/facts.d/koha.fact`. Alle volgende rollen lezen deze via `ansible_local.koha` — zonder hardcoded credentials.
+
+### TLS flow
+
+De volgorde in playbook 09 is kritiek vanwege de ACME HTTP-01 challenge:
+
+```
+1. koha_apache-tls          → HTTP vhosts deployen (poort 80 beschikbaar)
+2. certbot                  → certificaten aanvragen via Let's Encrypt
+3. koha_apache-tls-finalize → definitieve TLS vhosts + overbodige sites disablen
+```
 
 ---
 
-## 4. Ansible – Architectuur
+## ISBN Scan Applicatie
 
-De Ansible-architectuur is **lifecycle-gedreven**:
+De Flask applicatie op `https://scan.marxisme.be` maakt het mogelijk om boeken in te scannen met een handscanner en automatisch in Koha te importeren.
 
-* *Playbooks* bepalen de volgorde
-* *Rollen* hebben één duidelijke verantwoordelijkheid
-* *Variabelen* bepalen de inhoud
+### Flow
 
-### Kernprincipes
+```
+1. Scan ISBN-barcode met handscanner
+2. Flask raadpleegt OpenLibrary + Google Books API
+3. Boekgegevens worden getoond (titel, auteur, uitgever, taal)
+4. Optioneel: categorieën toevoegen of aanpassen
+5. Opslaan → MARCXML bestand aangemaakt in /var/lib/koha/bib/uploads/
+6. Cron job (elke minuut) importeert XML via stage_file.pl + commit_file.pl
+7. Boek verschijnt als catalogusrecord in Koha
+```
 
-* één rol = één taak
-* geen businesslogica in technische rollen
-* idempotente en herhaalbare runs
+### Installatie op de server
 
----
+```bash
+# Applicatiemap aanmaken
+sudo mkdir -p /opt/isbn-scanner
+sudo cp -r python_project/* /opt/isbn-scanner/
 
-## 5. Playbook lifecycle
+# Python omgeving
+cd /opt/isbn-scanner
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-De playbooks moeten **altijd in deze volgorde** worden uitgevoerd:
+# Upload map aanmaken
+sudo mkdir -p /var/lib/koha/bib/uploads
+sudo chown bib-koha:bib-koha /var/lib/koha/bib/uploads
 
-1. **01-bootstrap.yml**
-   Basis OS-configuratie
+# Cron job instellen (als bib-koha gebruiker)
+sudo crontab -u bib-koha -e
+# Voeg toe: * * * * * /var/lib/koha/bib/koha_import_cron.sh
 
-   * `system_apt`
-   * `system_swap`
-   * `locale_fix`
-   * `system_hardening_users`
+# Flask starten als systemd service
+sudo systemctl enable isbn-scanner
+sudo systemctl start isbn-scanner
+```
 
-2. **02-koha-install.yml**
-   Installatie van Koha packages
+### Apache vhost
 
-   * `koha_repo`
-   * `koha_install`
+```bash
+# HTTP vhost aanmaken voor certbot challenge
+sudo a2enmod proxy proxy_http
+sudo cp sites-available/scan.marxisme.be.conf /etc/apache2/sites-available/
+sudo a2ensite scan.marxisme.be.conf
+sudo systemctl reload apache2
 
-3. **03-koha-apache.yml**
-   Webserver configuratie
+# Certbot certificaat aanvragen
+sudo certbot --apache -d scan.marxisme.be
 
-   * `koha_apache`
+sudo systemctl reload apache2
+```
 
-4. **04-koha-instance.yml**
-   Koha instance en database
+### Projectstructuur
 
-   * `koha_instance`
-   * `koha_persist_facts`
-
-5. **05-koha-config.yml**
-   Technische Koha configuratie
-
-   * `koha_config`
-
-6. **06-koha-postinstall.yml**
-   Installerfase (initiële vulling)
-
-   * `koha_postinstall_db`
-   * `koha_postinstall_python`
-   * `koha_postinstall_yaml`
-
-7. **07-koha-business.yml**
-   Bibliotheeklogica
-
-   * `koha_business_libraries`
-   * `koha_business_authorised_values`
-   * `koha_business_admin`
-   * `koha_business_circulation`
-
-8. **08-koha-finalize.yml**
-   Afronding en validatie
-
-   * `koha_finalize`
-
----
-
-## 6. Variabelen en configuratie
-
-* **Defaults**: in rollen (`defaults/main.yml`)
-* **Omgevingsconfiguratie**: `ansible/inventory/group_vars/all/*.yml`
-* **Secrets**: voorlopig plain-text, voorbereid op Vault
-
-Er zijn geen hardcoded waarden in tasks.
+```
+python_project/
+├── run.py                  # Flask entry point
+├── requirements.txt
+├── app/
+│   ├── __init__.py         # Flask app factory
+│   ├── routes.py           # / (scan) en /save (opslaan)
+│   └── templates/
+│       └── index.html      # Scanformulier
+└── isbn_lookup.py          # OpenLibrary + Google Books + MARCXML logica
+```
 
 ---
 
-## 7. Status en toekomst
+## Omgevingen en accounts
 
-* structuur is stabiel na refactoring
-* voorbereid op:
+| Omgeving | OPAC | Intranet |
+|----------|------|----------|
+| Productie | https://bib.marxisme.be | https://bib-intra.marxisme.be |
+| Test | https://bib-test.marxisme.be | https://bib-test-intra.marxisme.be |
+| Scanner | https://scan.marxisme.be | — |
 
-  * Ansible Vault
-  * CI/CD pipelines
-  * multi-instance Koha deployments
+| Username | Naam | Rol |
+|----------|------|-----|
+| `kohaadmin` | Karl Marx | Superlibrarian |
+| `bibliothecaris` | Rosa Luxemburg | Superlibrarian |
+| `catalogisator` | Friedrich Engels | Superlibrarian |
+
+> **Let op:** Wachtwoorden zijn hardcoded voor de POC-fase. Migreer naar Ansible Vault voor productie — de Vault server is reeds uitgerold als onderdeel van de homelab stack.
 
 ---
 
-## 8. Onderhoud
+## Configuratie aanpassen
 
-Wijzigingen in bibliotheeklogica (circulation, libraries, authorised values) vereisen **geen herinstallatie** van Koha.
+Alle bibliotheeklogica is aanpasbaar via `defaults/main.yml` per role, zonder code te wijzigen. Na aanpassing:
 
-Technische wijzigingen blijven beperkt tot hun eigen lifecycle-fase.
+```bash
+ansible-playbook -i inventory/terraform.py playbooks/07-koha-business.yml
+```
+
+**Nieuwe bibliotheek toevoegen** — `roles/koha_business_libraries/defaults/main.yml`:
+
+```yaml
+koha_libraries:
+  - code: SAF
+    name: Steunpunt Antifascisme
+  - code: BRU
+    name: Brussel filiaal
+```
+
+**Item type activeren** — `roles/koha_business_item_types/defaults/main.yml`:
+
+```yaml
+# Verwijder commentaar om te activeren
+  - code: DVD
+    description: DVD
+    loan_period: 7
+    renewals: 1
+    notforloan: 0
+```
+
+**Medewerker toevoegen** — `roles/koha_business_staff/defaults/main.yml`:
+
+```yaml
+koha_staff_users:
+  - username: nieuwemedewerker
+    cardnumber: "1003"
+    firstname: Voornaam
+    surname: Achternaam
+    category: S
+    branch: SAF
+    flags: 1
+    password_hash: "$2a$08$..."  # bcrypt hash
+```
+
+Genereer een hash:
+
+```bash
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'wachtwoord', bcrypt.gensalt()).decode())"
+```
+
+---
+
+## Troubleshooting
+
+**Apache toont default pagina na TLS deploy**
+
+```bash
+ls -la /etc/apache2/sites-enabled/
+sudo a2dissite bib.conf
+sudo a2dissite bib-le-ssl.conf
+sudo systemctl reload apache2
+```
+
+**Koha webinstaller verschijnt na login**
+
+```bash
+ansible-playbook -i inventory/terraform.py playbooks/08-koha-finalize.yml
+```
+
+**Zebra zoekindex leeg**
+
+```bash
+sudo koha-rebuild-zebra -f -a -b -v bib
+```
+
+**Ansible facts ontbreken**
+
+```bash
+cat /etc/ansible/facts.d/koha.fact
+ansible-playbook -i inventory/terraform.py playbooks/04-koha-instance.yml
+```
+
+**Nuttige commando's op de server**
+
+```bash
+sudo tail -f /var/log/koha/bib/opac-error.log
+sudo apachectl configtest
+sudo koha-plack --status bib
+sudo koha-plack --restart bib
+sudo certbot renew --dry-run
+```
+
+---
+
+## Roadmap
+
+- [ ] Ansible Vault integratie voor wachtwoorden en API tokens
+- [ ] UFW firewall configuratie
+- [ ] ISBN scanner als Ansible role
+- [ ] Email/SMTP configuratie voor Koha herinneringen
+- [ ] Automatische Koha cron jobs (`overdue_notices`, `fines`, `cleanup_database`)
+- [ ] MariaDB backup naar DigitalOcean Spaces
+- [ ] Z39.50 voor externe catalogusimport
+
+---
+
+## Licentie
+
+MIT
