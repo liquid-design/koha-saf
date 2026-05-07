@@ -1,0 +1,13 @@
+# ============================================================================
+# Flask ISBN scan app
+# ----------------------------------------------------------------------------
+# Deployt de Python/Flask scan-app als systemd service achter Apache TLS.
+# Vereist dat het Koha-domein al klaar is (certbot werkt) en dat 'bib-koha'
+# user bestaat (dwz koha_instance role moet eerst gedraaid hebben).
+# ============================================================================
+
+- name: Deploy Flask ISBN scan app
+  hosts: all
+  become: true
+  roles:
+    - flask_isbn_app

@@ -1,0 +1,13 @@
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: restart flask isbn
+  systemd:
+    name: flask-isbn
+    state: restarted
+
+- name: reload apache
+  service:
+    name: apache2
+    state: reloaded

@@ -1,0 +1,14 @@
+# ============================================================================
+# Koha import runner
+# ----------------------------------------------------------------------------
+# Deploy systemd path unit + script dat MARCXML uit staging dir importeert
+# in Koha. Triggert automatisch op nieuwe bestanden via inotify.
+#
+# Vereist dat 10-flask-isbn.yml al gedraaid heeft (staging dir bestaat).
+# ============================================================================
+
+- name: Deploy Koha import runner
+  hosts: all
+  become: true
+  roles:
+    - koha_import_runner

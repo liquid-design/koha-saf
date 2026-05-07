@@ -1,0 +1,25 @@
+# ============================================================================
+# koha_import_runner role - defaults
+# ============================================================================
+
+# Pad naar de Koha tools. Op Koha 25.05 staan deze in /usr/share/koha/bin/.
+# Sommige oudere installs hebben ze in /usr/share/koha/bin/migration_tools/.
+# Override in group_vars als jouw install anders is.
+koha_stage_file_pl: /usr/share/koha/bin/stage_file.pl
+koha_commit_file_pl: /usr/share/koha/bin/commit_file.pl
+
+# Pad waar het script terechtkomt
+koha_import_script_path: /usr/local/sbin/koha-import-runner.sh
+
+# Logging
+koha_import_log_dir: /var/log/koha-import
+koha_import_log_file: "{{ koha_import_log_dir }}/import.log"
+
+# Logrotate retention
+koha_import_log_rotate_days: 30
+
+# Staging directory waar Flask de XMLs neerzet. Match wat in flask_isbn_app
+# role staat. Als beide roles in dezelfde playbook draaien wint die default
+# (volgorde van inclusion); anders pakken we deze.
+flask_staging_dir: /var/lib/koha-staging
+koha_import_group: koha-import

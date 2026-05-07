@@ -1,0 +1,257 @@
+# ============================================================================
+# flask_isbn_app role
+# ----------------------------------------------------------------------------
+# Installeert de Flask ISBN-scan app als systemd service achter Apache.
+# Architectuur:
+#   - Flask draait als 'flask-isbn' user
+#   - Flask schrijft XML naar /var/lib/koha-staging/ (niet rechtstreeks naar
+#     Koha's upload-dir)
+#   - Beide users (flask-isbn + bib-koha) zitten in group 'koha-import'
+#   - SetGID bit (mode 2775) zorgt dat nieuwe bestanden de juiste group erven
+#   - Apache reverse proxy op scan.<domain> -> 127.0.0.1:5000
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. System packages
+# ----------------------------------------------------------------------------
+- name: Install Python en venv ondersteuning
+  apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+    state: present
+
+# ----------------------------------------------------------------------------
+# 2. Users en groups
+# ----------------------------------------------------------------------------
+# Eerst de groups expliciet aanmaken. De user module faalt anders met
+# "Group flask-isbn does not exist" als 'group:' verwijst naar een
+# nog niet bestaande group.
+- name: Maak shared group koha-import aan
+  group:
+    name: "{{ koha_import_group }}"
+    state: present
+    system: true
+
+- name: Maak primary group flask-isbn aan
+  group:
+    name: "{{ flask_group }}"
+    state: present
+    system: true
+
+- name: Maak system user flask-isbn aan
+  user:
+    name: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    groups: "{{ koha_import_group }}"
+    append: true
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ flask_app_dir }}"
+    create_home: false
+    state: present
+
+- name: Voeg bib-koha user toe aan koha-import group
+  user:
+    name: "{{ koha_user }}"
+    groups: "{{ koha_import_group }}"
+    append: true
+  notify: restart flask isbn
+
+# ----------------------------------------------------------------------------
+# 3. Directories
+# ----------------------------------------------------------------------------
+- name: Maak app-dir aan
+  file:
+    path: "{{ flask_app_dir }}"
+    state: directory
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0755'
+
+- name: Maak app/templates dirs aan
+  file:
+    path: "{{ flask_app_dir }}/app/templates"
+    state: directory
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0755'
+
+# Staging-dir: setgid bit (2) zorgt dat nieuwe files de group erven van de dir.
+# 775 = rwxrwxr-x: owner+group lezen+schrijven, others alleen traverse.
+- name: Maak staging directory aan met setgid bit
+  file:
+    path: "{{ flask_staging_dir }}"
+    state: directory
+    owner: "{{ flask_user }}"
+    group: "{{ koha_import_group }}"
+    mode: '2775'
+
+# ----------------------------------------------------------------------------
+# 4. App-bestanden deployen
+# ----------------------------------------------------------------------------
+- name: Deploy isbn_lookup.py
+  copy:
+    src: app/isbn_lookup.py
+    dest: "{{ flask_app_dir }}/isbn_lookup.py"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+  notify: restart flask isbn
+
+- name: Deploy run.py
+  copy:
+    src: app/run.py
+    dest: "{{ flask_app_dir }}/run.py"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+  notify: restart flask isbn
+
+- name: Deploy app/__init__.py
+  copy:
+    src: app/__init__.py
+    dest: "{{ flask_app_dir }}/app/__init__.py"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+  notify: restart flask isbn
+
+- name: Deploy app/routes.py
+  copy:
+    src: app/routes.py
+    dest: "{{ flask_app_dir }}/app/routes.py"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+  notify: restart flask isbn
+
+- name: Deploy app/templates/index.html
+  copy:
+    src: app/templates/index.html
+    dest: "{{ flask_app_dir }}/app/templates/index.html"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+  notify: restart flask isbn
+
+- name: Deploy requirements.txt
+  copy:
+    src: app/requirements.txt
+    dest: "{{ flask_app_dir }}/requirements.txt"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+
+# ----------------------------------------------------------------------------
+# 5. Python virtual environment
+# ----------------------------------------------------------------------------
+- name: Maak Python venv aan
+  command: "python3 -m venv {{ flask_venv_dir }}"
+  args:
+    creates: "{{ flask_venv_dir }}/bin/python"
+  become_user: "{{ flask_user }}"
+
+- name: Upgrade pip in venv
+  pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: latest
+    virtualenv: "{{ flask_venv_dir }}"
+  become_user: "{{ flask_user }}"
+
+- name: Installeer Python requirements in venv
+  pip:
+    requirements: "{{ flask_app_dir }}/requirements.txt"
+    virtualenv: "{{ flask_venv_dir }}"
+  become_user: "{{ flask_user }}"
+  notify: restart flask isbn
+
+- name: Installeer gunicorn in venv
+  pip:
+    name: gunicorn
+    virtualenv: "{{ flask_venv_dir }}"
+  become_user: "{{ flask_user }}"
+  notify: restart flask isbn
+
+# ----------------------------------------------------------------------------
+# 6. Systemd service
+# ----------------------------------------------------------------------------
+- name: Genereer Flask secret key (eenmalig)
+  shell: "openssl rand -hex 32 > {{ flask_app_dir }}/.flask_secret"
+  args:
+    creates: "{{ flask_app_dir }}/.flask_secret"
+
+- name: Beveilig flask secret
+  file:
+    path: "{{ flask_app_dir }}/.flask_secret"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0600'
+
+- name: Deploy systemd unit voor flask-isbn
+  template:
+    src: flask-isbn.service.j2
+    dest: /etc/systemd/system/flask-isbn.service
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart flask isbn
+
+- name: Enable en start flask-isbn service
+  systemd:
+    name: flask-isbn
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ----------------------------------------------------------------------------
+# 7. Apache reverse proxy
+# ----------------------------------------------------------------------------
+- name: Enable Apache proxy modules
+  command: "a2enmod {{ item }}"
+  args:
+    creates: "/etc/apache2/mods-enabled/{{ item }}.load"
+  loop:
+    - proxy
+    - proxy_http
+    - rewrite
+    - headers
+    - ssl
+  notify: reload apache
+
+- name: Verkrijg TLS certificaat voor scan-domein
+  command: >
+    certbot certonly
+    --apache
+    -n
+    --agree-tos
+    --email {{ letsencrypt_email }}
+    -d {{ scan_domain }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ scan_domain }}"
+
+- name: Deploy Apache vhost voor scan-domein
+  template:
+    src: scan-vhost.conf.j2
+    dest: "/etc/apache2/sites-available/{{ scan_domain }}.conf"
+    mode: '0644'
+  notify: reload apache
+
+- name: Enable scan vhost
+  command: "a2ensite {{ scan_domain }}.conf"
+  args:
+    creates: "/etc/apache2/sites-enabled/{{ scan_domain }}.conf"
+  notify: reload apache
+
+# Certbot maakt soms automatisch een -le-ssl variant aan. Disable die om
+# conflicten met onze eigen vhost te vermijden (zelfde patroon als
+# koha_apache-tls-finalize role).
+- name: Disable automatische certbot vhost
+  command: "a2dissite {{ scan_domain }}-le-ssl.conf"
+  args:
+    removes: "/etc/apache2/sites-enabled/{{ scan_domain }}-le-ssl.conf"
+  notify: reload apache

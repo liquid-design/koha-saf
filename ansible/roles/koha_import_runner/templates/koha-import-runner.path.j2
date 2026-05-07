@@ -1,0 +1,15 @@
+[Unit]
+Description=Watch Koha staging dir voor nieuwe MARCXML bestanden
+Documentation=man:systemd.path(5)
+
+[Path]
+# PathChanged triggert bij: file create, file modify, en directory mtime change
+# in de gespecificeerde directory. Werkt via inotify, geen polling.
+PathChanged={{ flask_staging_dir }}
+
+# Hoe heet de service die getriggerd wordt? Default = zelfde basename .service.
+# Expliciet maken voor duidelijkheid.
+Unit=koha-import-runner.service
+
+[Install]
+WantedBy=multi-user.target

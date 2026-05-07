@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ISBN Lookup - Koha SAF</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 1em auto; padding: 0 1em; }
+    h1, h2 { color: #333; }
+    label { display: block; margin-top: 0.8em; font-weight: bold; }
+    input[type=text], select { width: 100%; padding: 0.6em; font-size: 1em; box-sizing: border-box; }
+    button { margin-top: 1em; padding: 0.7em 1.5em; font-size: 1em; cursor: pointer; }
+    .flash { padding: 0.8em; margin: 1em 0; border-radius: 4px; }
+    .flash.error { background: #fdd; border: 1px solid #c33; }
+    .flash.success { background: #dfd; border: 1px solid #393; }
+    .book-info { background: #f4f4f4; padding: 1em; border-radius: 4px; }
+    .book-info ul { list-style: none; padding: 0; }
+    .book-info li { margin: 0.3em 0; }
+    hr { margin: 2em 0; border: 0; border-top: 1px solid #ccc; }
+  </style>
+  <script>
+    function focusInput(id) {
+      const el = document.getElementById(id);
+      if (el) el.focus();
+    }
+    window.onload = function() {
+      // Als er al een book is, focus op barcode (volgende stap).
+      // Anders focus op ISBN input.
+      if (document.getElementById('barcode')) {
+        focusInput('barcode');
+      } else {
+        focusInput('isbn');
+      }
+    };
+  </script>
+</head>
+<body>
+  <h1>ISBN Lookup -> Koha</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="flash {{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('lookup') }}">
+    <label for="isbn">ISBN scannen of intypen:</label>
+    <input type="text" id="isbn" name="isbn" required autocomplete="off" autofocus
+           value="{{ isbn or '' }}">
+    <button type="submit">Opzoeken</button>
+  </form>
+
+  {% if book %}
+    <hr>
+    <h2>Gevonden: {{ isbn }}</h2>
+
+    <div class="book-info">
+      <ul>
+        {% for key, value in book.items() %}
+          <li><strong>{{ key }}:</strong>
+            {% if value is iterable and value is not string %}
+              {{ value | join(', ') }}
+            {% else %}
+              {{ value }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% set category_list = [
+      "Algemene Geschiedenis",
+      "Geschiedenis Belgische Arbeidersbeweging",
+      "Britse Arbeidersbeweging",
+      "Franse Arbeidersbeweging",
+      "Nederlandse Arbeidersbeweging",
+      "Marxisme",
+      "Anarchisme",
+      "Biografieen Nederlandstalig",
+      "Biografieen Franstalig",
+      "Biografieen Engelstalig"
+    ] %}
+
+    <form method="post" action="{{ url_for('save') }}">
+      <input type="hidden" name="isbn" value="{{ isbn }}">
+
+      <label for="barcode">Barcode (verplicht):</label>
+      <input type="text" id="barcode" name="barcode" required autocomplete="off"
+             placeholder="bv. SAF000001">
+
+      <label for="category">Categorie (optioneel, overschrijft auto-detect):</label>
+      <select id="category" name="category">
+        <option value="">-- houd auto-detect --</option>
+        {% for cat in category_list %}
+          <option value="{{ cat }}"
+            {% if book.categories and (cat in book.categories) %}selected{% endif %}>
+            {{ cat }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit">MARCXML opslaan</button>
+    </form>
+  {% endif %}
+
+  {% if marcfile %}
+    <hr>
+    <p class="flash success">
+      MARCXML opgeslagen: <code>{{ marcfile }}</code><br>
+      Cron pikt dit binnen 1 minuut op en importeert in Koha.
+    </p>
+  {% endif %}
+</body>
+</html>

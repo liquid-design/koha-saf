@@ -14,3 +14,6 @@ koha_opac_domain: bib-test.marxisme.be
 koha_intranet_domain: bib-test-intra.marxisme.be
 letsencrypt_email: sander@liquid-design.be
 koha_user: bib-test-koha
+
+# For flask
+scan_domain: scan-test.marxisme.be

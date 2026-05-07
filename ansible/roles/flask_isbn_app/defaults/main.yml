@@ -1,0 +1,26 @@
+# ============================================================================
+# flask_isbn_app role - defaults
+# ----------------------------------------------------------------------------
+# Override deze in group_vars als je iets anders wilt.
+# ============================================================================
+
+# Users en groups
+flask_user: flask-isbn
+flask_group: flask-isbn
+
+# Group voor het delen van uploads tussen Flask en bib-koha
+koha_import_group: koha-import
+
+# Paden
+flask_app_dir: /opt/isbn_lookup
+flask_venv_dir: /opt/isbn_lookup/.venv
+flask_staging_dir: /var/lib/koha-staging
+
+# Flask service
+flask_bind: "127.0.0.1:5000"
+flask_workers: 2
+
+# scan_domain wordt in group_vars/{test,prod}.yml gezet:
+#   test: scan_domain: scan-test.marxisme.be
+#   prod: scan_domain: scan.marxisme.be
+# Geen default hier - we falen liever vroeg dan een verkeerd cert aanvragen.

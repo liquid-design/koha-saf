@@ -1,0 +1,121 @@
+# ============================================================================
+# koha_import_runner role
+# ----------------------------------------------------------------------------
+# Triggert automatisch op nieuwe XML bestanden in de staging dir
+# (via systemd path unit), verplaatst ze naar Koha's upload-dir, en runt
+# stage_file.pl + commit_file.pl. Faalt? -> staging/failed/<timestamp>_<name>.
+#
+# Vereisten:
+#   - flask_staging_dir bestaat (van flask_isbn_app role)
+#   - Koha is geinstalleerd, koha_user en koha_instance bestaan
+#   - stage_file.pl en commit_file.pl staan op het verwachte pad
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. Verifieer dat Koha-tools aanwezig zijn
+# ----------------------------------------------------------------------------
+- name: Check dat stage_file.pl bestaat
+  stat:
+    path: "{{ koha_stage_file_pl }}"
+  register: stage_file_stat
+
+- name: Faal expliciet als stage_file.pl ontbreekt
+  fail:
+    msg: |
+      stage_file.pl niet gevonden op {{ koha_stage_file_pl }}.
+      Check waar Koha hem heeft gezet:
+        sudo find /usr/share/koha -name 'stage_file.pl' 2>/dev/null
+      en zet 'koha_stage_file_pl' in group_vars.
+  when: not stage_file_stat.stat.exists
+
+- name: Check dat commit_file.pl bestaat
+  stat:
+    path: "{{ koha_commit_file_pl }}"
+  register: commit_file_stat
+
+- name: Faal expliciet als commit_file.pl ontbreekt
+  fail:
+    msg: "commit_file.pl niet gevonden op {{ koha_commit_file_pl }}"
+  when: not commit_file_stat.stat.exists
+
+# ----------------------------------------------------------------------------
+# 2. Log directory
+# ----------------------------------------------------------------------------
+- name: Maak log directory aan
+  file:
+    path: "{{ koha_import_log_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configureer logrotate
+  copy:
+    dest: /etc/logrotate.d/koha-import
+    mode: '0644'
+    content: |
+      {{ koha_import_log_file }} {
+          daily
+          rotate {{ koha_import_log_rotate_days }}
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0644 root root
+      }
+
+# ----------------------------------------------------------------------------
+# 3. Failed-dir aanmaken in staging
+# ----------------------------------------------------------------------------
+- name: Maak failed/ subdir in staging
+  file:
+    path: "{{ flask_staging_dir }}/failed"
+    state: directory
+    owner: "{{ koha_user }}"
+    group: "{{ koha_import_group | default('koha-import') }}"
+    mode: '2775'
+
+# ----------------------------------------------------------------------------
+# 4. Deploy het import script
+# ----------------------------------------------------------------------------
+- name: Deploy koha-import-runner script
+  template:
+    src: koha-import-runner.sh.j2
+    dest: "{{ koha_import_script_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+
+# ----------------------------------------------------------------------------
+# 5. Systemd units (path + service)
+# ----------------------------------------------------------------------------
+- name: Deploy systemd service unit
+  template:
+    src: koha-import-runner.service.j2
+    dest: /etc/systemd/system/koha-import-runner.service
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart koha import path
+
+- name: Deploy systemd path unit
+  template:
+    src: koha-import-runner.path.j2
+    dest: /etc/systemd/system/koha-import-runner.path
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart koha import path
+
+# Force handler nu uit te voeren voor we de path unit enablen
+- name: Force handlers nu te runnen
+  meta: flush_handlers
+
+# Path unit enablen (start hem ook). De service unit zelf NIET enablen -
+# die wordt door de path unit getriggerd.
+- name: Enable en start koha-import-runner.path
+  systemd:
+    name: koha-import-runner.path
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,162 @@
+#!/bin/bash
+# ============================================================================
+# Koha import runner
+# ----------------------------------------------------------------------------
+# Wordt getriggerd door systemd path unit zodra er een nieuw .xml bestand in
+# de staging-dir verschijnt. Verwerkt ALLE *.xml in de dir per run.
+#
+# Flow per bestand:
+#   1. Verplaats naar Koha's eigen upload-dir
+#   2. stage_file.pl (via koha-shell wrapper) met match-on-ISBN, ignore on match
+#   3. commit_file.pl op het verkregen batch-nummer
+#   4. Succes: rm bestand uit Koha uploads
+#      Fail:    mv naar staging/failed/<timestamp>_<naam>
+#
+# Belangrijk: gebruikt 'koha-shell <instance> -c "..."' wrapper omdat dat de
+# manier is waarop Koha's CLI tools verwacht worden te runnen. Het zet
+# KOHA_CONF, PERL5LIB, en switcht naar de juiste user.
+#
+# Locking via flock voorkomt parallelle runs.
+# ============================================================================
+
+set -u
+
+# Variables uit Jinja
+KOHA_INSTANCE="{{ koha_instance }}"
+STAGING_DIR="{{ flask_staging_dir }}"
+FAILED_DIR="${STAGING_DIR}/failed"
+UPLOAD_DIR="/var/lib/koha/${KOHA_INSTANCE}/uploads"
+LOG_FILE="{{ koha_import_log_file }}"
+LOCK_FILE="/var/lock/koha-import.lock"
+STAGE_FILE="{{ koha_stage_file_pl }}"
+COMMIT_FILE="{{ koha_commit_file_pl }}"
+
+# ----------------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------------
+log() {
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    echo "$msg" >> "$LOG_FILE"
+    echo "$msg"
+}
+
+# ----------------------------------------------------------------------------
+# Lock
+# ----------------------------------------------------------------------------
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    log "Andere import-run actief, deze instantie stopt"
+    exit 0
+fi
+
+# ----------------------------------------------------------------------------
+# Pre-flight checks
+# ----------------------------------------------------------------------------
+mkdir -p "$FAILED_DIR" 2>/dev/null || true
+
+if [ ! -d "$STAGING_DIR" ]; then
+    log "FOUT: staging directory bestaat niet: $STAGING_DIR"
+    exit 1
+fi
+
+if [ ! -d "$UPLOAD_DIR" ]; then
+    log "FOUT: Koha upload directory bestaat niet: $UPLOAD_DIR"
+    exit 1
+fi
+
+# ----------------------------------------------------------------------------
+# Process *.xml in staging
+# ----------------------------------------------------------------------------
+shopt -s nullglob
+xml_files=("$STAGING_DIR"/*.xml)
+
+if [ {% raw %}${#xml_files[@]}{% endraw %} -eq 0 ]; then
+    exit 0
+fi
+
+log "Start import-run voor {% raw %}${#xml_files[@]}{% endraw %} bestand(en)"
+
+success_count=0
+fail_count=0
+
+for staging_file in "${xml_files[@]}"; do
+    fname=$(basename "$staging_file")
+    upload_path="$UPLOAD_DIR/$fname"
+
+    log "Verwerken: $fname"
+
+    # Verplaats van staging naar Koha upload dir
+    if ! mv "$staging_file" "$upload_path"; then
+        log "  FAIL: mv naar $upload_path mislukt"
+        fail_count=$((fail_count + 1))
+        continue
+    fi
+
+    # Stage via koha-shell.
+    # Optie-keuzes voor "skip volledig bij duplicaat":
+    #   --match           : default MARC21 ISBN+title match rule
+    #   --no-replace      : bij match: bib-record niet overschrijven
+    #   --add-items       : neem 952 items mee
+    #   --item-action add_only_for_new : voeg item alleen toe bij NIEUW record
+    #                       Bij match -> geen item toevoegen (= skip volledig)
+    # Default zonder --no-create: bij geen match wordt een nieuw record gemaakt.
+    stage_cmd="$STAGE_FILE \
+        --file '$upload_path' \
+        --format MARCXML \
+        --match \
+        --no-replace \
+        --add-items \
+        --item-action add_only_for_new \
+        --comment 'Auto-import koha-import-runner $(date -Iseconds)'"
+
+    stage_output=$(koha-shell "$KOHA_INSTANCE" -c "$stage_cmd" 2>&1)
+    stage_rc=$?
+    log "  stage_file.pl exit=$stage_rc"
+
+    if [ $stage_rc -ne 0 ]; then
+        log "  FAIL stage output: $stage_output"
+        ts=$(date +%Y%m%d_%H%M%S)
+        mv "$upload_path" "$FAILED_DIR/${ts}_${fname}" 2>/dev/null || true
+        fail_count=$((fail_count + 1))
+        continue
+    fi
+
+    # Batch-nummer parsen uit output
+    batch=$(echo "$stage_output" | awk '/Batch number assigned/ {print $NF}')
+    if [ -z "$batch" ]; then
+        log "  FAIL: geen batch-nummer in output: $stage_output"
+        ts=$(date +%Y%m%d_%H%M%S)
+        mv "$upload_path" "$FAILED_DIR/${ts}_${fname}" 2>/dev/null || true
+        fail_count=$((fail_count + 1))
+        continue
+    fi
+
+    log "  batch=$batch -> commit"
+
+    # Commit
+    commit_cmd="$COMMIT_FILE --batch-number $batch"
+    commit_output=$(koha-shell "$KOHA_INSTANCE" -c "$commit_cmd" 2>&1)
+    commit_rc=$?
+    echo "$commit_output" >> "$LOG_FILE"
+
+    if [ $commit_rc -ne 0 ]; then
+        log "  FAIL commit: $commit_output"
+        ts=$(date +%Y%m%d_%H%M%S)
+        if [ -f "$upload_path" ]; then
+            mv "$upload_path" "$FAILED_DIR/${ts}_${fname}" 2>/dev/null || true
+        fi
+        fail_count=$((fail_count + 1))
+        continue
+    fi
+
+    rm -f "$upload_path"
+    log "  OK: $fname geimporteerd in batch $batch"
+    success_count=$((success_count + 1))
+done
+
+log "Klaar: $success_count succes, $fail_count gefaald"
+
+if [ $fail_count -gt 0 ]; then
+    exit 1
+fi
+exit 0
