@@ -100,6 +100,11 @@ for staging_file in "${xml_files[@]}"; do
     #   --item-action add_only_for_new : voeg item alleen toe bij NIEUW record
     #                       Bij match -> geen item toevoegen (= skip volledig)
     # Default zonder --no-create: bij geen match wordt een nieuw record gemaakt.
+    #
+    # Comment heeft geen spaties: nested quoting via 'koha-shell -c "<cmd>"'
+    # werkt niet betrouwbaar als de waarde spaties heeft - we gebruiken
+    # underscores zodat het hele veld als 1 argument doorkomt.
+    comment="koha-import-runner_$(date +%Y%m%dT%H%M%S)"
     stage_cmd="$STAGE_FILE \
         --file '$upload_path' \
         --format MARCXML \
@@ -107,7 +112,7 @@ for staging_file in "${xml_files[@]}"; do
         --no-replace \
         --add-items \
         --item-action add_only_for_new \
-        --comment 'Auto-import koha-import-runner $(date -Iseconds)'"
+        --comment $comment"
 
     stage_output=$(koha-shell "$KOHA_INSTANCE" -c "$stage_cmd" 2>&1)
     stage_rc=$?

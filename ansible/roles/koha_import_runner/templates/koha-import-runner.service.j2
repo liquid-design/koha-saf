@@ -1,19 +1,17 @@
 [Unit]
 Description=Importeer MARCXML bestanden uit staging naar Koha
 Documentation=man:systemd.service(5)
-# Niet starten als de service al runt - voorkomt parallelle uitvoering bovenop
-# de flock in het script
 ConditionPathExists={{ flask_staging_dir }}
 
 [Service]
 Type=oneshot
 # Draait als root omdat we 'koha-shell <instance>' aanroepen, en die wrapper
-# switcht zelf naar de juiste koha-user. Het script raakt verder niets aan
-# behalve de paden in ReadWritePaths.
+# switcht zelf naar de juiste koha-user. De security boundary ligt aan de
+# Flask kant: flask-isbn schrijft enkel naar staging. Deze service is een
+# trusted post-staging pipeline die Koha's eigen tooling aanroept.
 User=root
 Group=root
 
-# Het script doet alle logica
 ExecStart={{ koha_import_script_path }}
 
 # Korte timeout: als import langer dan 10 min duurt is er iets goed mis
@@ -24,20 +22,10 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=koha-import
 
-# Security hardening - we hebben Koha-tools nodig dus iets minder strikt dan
-# de Flask service, maar nog steeds redelijk
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-# Schrijftoegang naar de paden waar we mee werken
-ReadWritePaths={{ flask_staging_dir }} /var/lib/koha /var/log/koha-import /var/lock
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-LockPersonality=true
+# Geen sandbox-restricties: koha-shell + commit_file.pl heeft toegang nodig
+# tot Koha's eigen log-, cache-, run-paths en moet sudo kunnen doen voor
+# user-switching. De aparte flask-isbn user en staging-dir zijn de echte
+# security boundary van deze pipeline.
 
 [Install]
-# Alleen handmatig of via path unit te triggeren, niet bij boot
 WantedBy=
