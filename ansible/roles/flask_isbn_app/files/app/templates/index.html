@@ -68,17 +68,59 @@
       </ul>
     </div>
 
+    {#
+      AF Bibliotheek - definitieve categorielijst.
+      Format per item: (label, value)
+        - label   = wat de gebruiker ziet in de dropdown
+        - value   = wat naar de backend gaat
+                    Bij subcategorieen: "hoofd,sub" zodat routes.py het splitst
+                    in 2 losse MARC 650-velden (beide doorzoekbaar in Koha).
+                    Backend splitst al op komma/puntkomma.
+        - alle values lowercase per request van bibliothecaris
+    #}
     {% set category_list = [
-      "Algemene Geschiedenis",
-      "Geschiedenis Belgische Arbeidersbeweging",
-      "Britse Arbeidersbeweging",
-      "Franse Arbeidersbeweging",
-      "Nederlandse Arbeidersbeweging",
-      "Marxisme",
-      "Anarchisme",
-      "Biografieen Nederlandstalig",
-      "Biografieen Franstalig",
-      "Biografieen Engelstalig"
+      ("Feminisme",                                          "feminisme"),
+      ("Filosofie",                                          "filosofie"),
+      ("Sociologie",                                         "sociologie"),
+      ("Economie",                                           "economie"),
+      ("Oostblok",                                           "oostblok"),
+      ("Joegoslavië",                                        "joegoslavië"),
+      ("Frankrijk",                                          "frankrijk"),
+      ("Biografieën",                                        "biografieën"),
+      ("Marxisme — Marx en Engels",                          "marxisme,marx en engels"),
+      ("Marxisme — Lenin",                                   "marxisme,lenin"),
+      ("Marxisme — Trotski",                                 "marxisme,trotski"),
+      ("Marxisme — Algemeen",                                "marxisme,algemeen"),
+      ("Anarchisme",                                         "anarchisme"),
+      ("Jodendom",                                           "jodendom"),
+      ("Verzet & collaboratie — Verzet en collaboratie in België",  "verzet & collaboratie,verzet en collaboratie in belgië"),
+      ("Verzet & collaboratie — Verzet en collaboratie in Frankrijk", "verzet & collaboratie,verzet en collaboratie in frankrijk"),
+      ("Verzet & collaboratie — WO2 algemeen",               "verzet & collaboratie,wo2 algemeen"),
+      ("Actualiteit",                                        "actualiteit"),
+      ("Midden-Oosten",                                      "midden-oosten"),
+      ("Antifascisme — Extreemrechts Franstalig",            "antifascisme,extreemrechts franstalig"),
+      ("Antifascisme — Extreemrechts Engelstalig",           "antifascisme,extreemrechts engelstalig"),
+      ("Antifascisme — Extreemrechts Nederlandstalig",       "antifascisme,extreemrechts nederlandstalig"),
+      ("Antifascisme — Fascisme",                            "antifascisme,fascisme"),
+      ("Antifascisme — VB en co",                            "antifascisme,vb en co"),
+      ("Antifascisme — Antiracisme",                         "antifascisme,antiracisme"),
+      ("Antifascisme — Dekolonisatie",                       "antifascisme,dekolonisatie"),
+      ("Latijns-Amerika – Afrika – Azië",                    "latijns-amerika – afrika – azië"),
+      ("Geschiedenis algemeen",                              "geschiedenis algemeen"),
+      ("Geschiedenis België",                                "geschiedenis belgië"),
+      ("Belgische arbeidersbeweging",                        "belgische arbeidersbeweging"),
+      ("Communistische Partij",                              "communistische partij"),
+      ("Sociaaldemocratie",                                  "sociaaldemocratie"),
+      ("VS",                                                 "vs"),
+      ("Italië",                                             "italië"),
+      ("Portugal",                                           "portugal"),
+      ("Spanje",                                             "spanje"),
+      ("Griekenland",                                        "griekenland"),
+      ("Nederland",                                          "nederland"),
+      ("Duitsland – Oostenrijk – Zwitserland",               "duitsland – oostenrijk – zwitserland"),
+      ("Scandinavië",                                        "scandinavië"),
+      ("Groot-Brittannië",                                   "groot-brittannië"),
+      ("Fictie met een politieke inslag",                    "fictie met een politieke inslag")
     ] %}
 
     <form method="post" action="{{ url_for('save') }}">
@@ -91,10 +133,25 @@
       <label for="category">Categorie (optioneel, overschrijft auto-detect):</label>
       <select id="category" name="category">
         <option value="">-- houd auto-detect --</option>
-        {% for cat in category_list %}
-          <option value="{{ cat }}"
-            {% if book.categories and (cat in book.categories) %}selected{% endif %}>
-            {{ cat }}
+        {% for label, value in category_list %}
+          {#
+            Auto-select als de auto-detect categorie matcht met (een component
+            van) deze entry. Case-insensitive. Niet kritisch: gebruiker kan
+            altijd handmatig overschrijven.
+            Namespace nodig omdat Jinja {% set %} binnen {% for %} anders
+            scoped is en niet zichtbaar buiten de loop.
+          #}
+          {% set ns = namespace(selected=false) %}
+          {% if book.categories %}
+            {% set lower_cats = book.categories | map('lower') | list %}
+            {% for component in value.split(',') %}
+              {% if component in lower_cats %}
+                {% set ns.selected = true %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          <option value="{{ value }}"{% if ns.selected %} selected{% endif %}>
+            {{ label }}
           </option>
         {% endfor %}
       </select>
