@@ -30,6 +30,7 @@ LOG_FILE="{{ koha_import_log_file }}"
 LOCK_FILE="/var/lock/koha-import.lock"
 STAGE_FILE="{{ koha_stage_file_pl }}"
 COMMIT_FILE="{{ koha_commit_file_pl }}"
+MATCHER_ID="{{ isbn_matcher_id }}"
 
 # ----------------------------------------------------------------------------
 # Logging
@@ -47,6 +48,41 @@ exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
     log "Andere import-run actief, deze instantie stopt"
     exit 0
+fi
+
+# ----------------------------------------------------------------------------
+# Zebra safety-check
+# ----------------------------------------------------------------------------
+# De matcher-detectie hangt 100% af van een draaiende zebra-daemon. Als zebra
+# down is, faalt de duplicate-detectie SILENT: stage_file.pl rapporteert
+# overlay_status=no_match en commit_file.pl schrijft de duplicate gewoon weg.
+# Beter hier hard falen dan later DB vol met dubbele records.
+ensure_zebra_running() {
+    if koha-zebra --status "$KOHA_INSTANCE" 2>&1 | grep -q "running for"; then
+        return 0
+    fi
+
+    log "WAARSCHUWING: Zebra niet actief voor $KOHA_INSTANCE, probeer te starten"
+    if ! koha-zebra --start "$KOHA_INSTANCE" 2>&1; then
+        log "FATAAL: koha-zebra --start faalde"
+        return 1
+    fi
+
+    # Korte sanity-wait: daemon heeft een moment nodig om socket te binden
+    sleep 2
+
+    if ! koha-zebra --status "$KOHA_INSTANCE" 2>&1 | grep -q "running for"; then
+        log "FATAAL: Zebra is gestart maar status zegt nog steeds niet 'running'"
+        return 1
+    fi
+
+    log "Zebra succesvol gestart voor $KOHA_INSTANCE"
+    return 0
+}
+
+if ! ensure_zebra_running; then
+    log "FATAAL: kan duplicate-detectie niet garanderen, abort import-run"
+    exit 1
 fi
 
 # ----------------------------------------------------------------------------
@@ -76,6 +112,16 @@ fi
 
 log "Start import-run voor {% raw %}${#xml_files[@]}{% endraw %} bestand(en)"
 
+# Zebra rebuild VOORAF: zorg dat de matcher-index actueel is.
+# Zonder dit ziet stage_file.pl eerder geimporteerde records niet en
+# detecteert hij geen duplicates.
+log "Zebra rebuild vooraf (voor matcher-index)"
+if koha-rebuild-zebra -b "$KOHA_INSTANCE" >> "$LOG_FILE" 2>&1; then
+    log "Zebra rebuild vooraf OK"
+else
+    log "WAARSCHUWING: Zebra rebuild vooraf faalde - duplicate-detectie kan onbetrouwbaar zijn"
+fi
+
 success_count=0
 fail_count=0
 
@@ -94,7 +140,7 @@ for staging_file in "${xml_files[@]}"; do
 
     # Stage via koha-shell.
     # Optie-keuzes voor "skip volledig bij duplicaat":
-    #   --match           : default MARC21 ISBN+title match rule
+    #   --match <id>      : gebruik onze ISBN matcher (op 020a)
     #   --no-replace      : bij match: bib-record niet overschrijven
     #   --add-items       : neem 952 items mee
     #   --item-action add_only_for_new : voeg item alleen toe bij NIEUW record
@@ -102,13 +148,12 @@ for staging_file in "${xml_files[@]}"; do
     # Default zonder --no-create: bij geen match wordt een nieuw record gemaakt.
     #
     # Comment heeft geen spaties: nested quoting via 'koha-shell -c "<cmd>"'
-    # werkt niet betrouwbaar als de waarde spaties heeft - we gebruiken
-    # underscores zodat het hele veld als 1 argument doorkomt.
+    # werkt niet betrouwbaar als de waarde spaties heeft.
     comment="koha-import-runner_$(date +%Y%m%dT%H%M%S)"
     stage_cmd="$STAGE_FILE \
         --file '$upload_path' \
         --format MARCXML \
-        --match \
+        --match $MATCHER_ID \
         --no-replace \
         --add-items \
         --item-action add_only_for_new \
@@ -160,6 +205,21 @@ for staging_file in "${xml_files[@]}"; do
 done
 
 log "Klaar: $success_count succes, $fail_count gefaald"
+
+# ----------------------------------------------------------------------------
+# Zebra rebuild als er records zijn toegevoegd
+# ----------------------------------------------------------------------------
+# Zonder dit zijn nieuwe records niet vindbaar via de OPAC search. De UI-
+# import doet dit automatisch via background-jobs; commit_file.pl direct
+# niet. -b = alleen biblios (geen authorities), -v = verbose voor logs.
+if [ $success_count -gt 0 ]; then
+    log "Zebra rebuild voor $success_count nieuwe records"
+    if koha-rebuild-zebra -b -v "$KOHA_INSTANCE" >> "$LOG_FILE" 2>&1; then
+        log "Zebra rebuild OK"
+    else
+        log "WAARSCHUWING: Zebra rebuild faalde - records staan in DB maar niet in search index"
+    fi
+fi
 
 if [ $fail_count -gt 0 ]; then
     exit 1

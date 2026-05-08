@@ -39,7 +39,43 @@
   when: not commit_file_stat.stat.exists
 
 # ----------------------------------------------------------------------------
-# 2. Log directory
+# 2. Zebra bootstrap
+# ----------------------------------------------------------------------------
+# Na een fresh `koha-create <instance>` is de zebra-daemon niet automatisch
+# gestart - koha-common.service start hem alleen bij service-(re)start of
+# reboot. Tot die tijd vult `stage_file.pl --match` geen import_record_matches
+# in en glipt elke duplicate ISBN als nieuwe record door de pipeline.
+#
+# We zorgen hier dat:
+#   1. koha-common enabled is op boot (zodat zebra na reboot vanzelf opkomt)
+#   2. zebra nu draait (anders eenmalig gestart)
+#   3. zebra ook echt reageert (anders fail loud, geen silent corruption)
+- name: Zorg dat koha-common enabled is op boot
+  systemd:
+    name: koha-common.service
+    enabled: true
+    state: started
+
+- name: Check of Zebra draait voor instance
+  command: koha-zebra --status {{ koha_instance }}
+  register: zebra_status_pre
+  changed_when: false
+  failed_when: false
+
+- name: Start Zebra indien nog niet actief
+  command: koha-zebra --start {{ koha_instance }}
+  when: "'running for' not in zebra_status_pre.stdout"
+  register: zebra_start
+  changed_when: zebra_start.rc == 0
+
+- name: Verifieer Zebra draait nu
+  command: koha-zebra --status {{ koha_instance }}
+  register: zebra_status_post
+  changed_when: false
+  failed_when: "'running for' not in zebra_status_post.stdout"
+
+# ----------------------------------------------------------------------------
+# 3. Log directory
 # ----------------------------------------------------------------------------
 - name: Maak log directory aan
   file:
@@ -65,7 +101,7 @@
       }
 
 # ----------------------------------------------------------------------------
-# 3. Failed-dir aanmaken in staging
+# 4. Failed-dir aanmaken in staging
 # ----------------------------------------------------------------------------
 - name: Maak failed/ subdir in staging
   file:
@@ -76,7 +112,40 @@
     mode: '2775'
 
 # ----------------------------------------------------------------------------
-# 4. Deploy het import script
+# 5. ISBN matcher seed
+# ----------------------------------------------------------------------------
+# Koha-installs zonder de webinstaller hebben geen voorgeïnstalleerde
+# matchers. Onze pipeline heeft er minstens 1 nodig (ISBN op 020a) om
+# duplicates te detecteren. SQL-seed is idempotent.
+- name: Deploy ISBN matcher SQL seed
+  copy:
+    src: isbn_matcher.sql
+    dest: /usr/local/share/koha-isbn-matcher.sql
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Pas ISBN matcher seed toe (idempotent)
+  shell: "koha-mysql {{ koha_instance }} < /usr/local/share/koha-isbn-matcher.sql"
+  register: matcher_seed_result
+  changed_when: "'1 row in set' in matcher_seed_result.stdout or 'Query OK, 1 row affected' in matcher_seed_result.stderr"
+
+- name: Haal matcher_id op voor de import script
+  shell: |
+    koha-mysql {{ koha_instance }} -BN -e "SELECT matcher_id FROM marc_matchers WHERE code='ISBN' LIMIT 1;"
+  register: matcher_id_query
+  changed_when: false
+
+- name: Sla matcher_id op als variabele
+  set_fact:
+    isbn_matcher_id: "{{ matcher_id_query.stdout | trim }}"
+
+- name: Toon matcher_id voor referentie
+  debug:
+    msg: "ISBN matcher heeft id {{ isbn_matcher_id }}"
+
+# ----------------------------------------------------------------------------
+# 6. Deploy het import script
 # ----------------------------------------------------------------------------
 - name: Deploy koha-import-runner script
   template:
@@ -87,7 +156,7 @@
     mode: '0755'
 
 # ----------------------------------------------------------------------------
-# 5. Systemd units (path + service)
+# 7. Systemd units (path + service)
 # ----------------------------------------------------------------------------
 - name: Deploy systemd service unit
   template:
