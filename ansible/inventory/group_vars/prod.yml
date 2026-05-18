@@ -16,4 +16,4 @@ letsencrypt_email: sander@liquid-design.be
 koha_user: bib-koha
 
 # For flask
-scan_domain: scan-test.marxisme.be
+scan_domain: scan.marxisme.be
