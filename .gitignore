@@ -9,6 +9,9 @@ terraform/secrets/*.tfvars
 
 # Ansible secrets
 ansible/.vault_pass.txt
+.ansible-vault-pass*
+*.vault-pass
+
 
 # Ansible runtime
 ansible/*.retry
