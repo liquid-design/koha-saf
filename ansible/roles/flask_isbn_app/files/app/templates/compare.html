@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Bronnen vergelijken — {{ isbn }}{% endblock %}
+
+{% block content %}
+  <h2>{{ hits|length }} bronnen gevonden voor ISBN <code>{{ isbn }}</code></h2>
+  <p class="instruction">
+    Selecteer <strong>1 of 2 bronnen</strong> om te mergen.
+    Vink de gewenste bron(nen) aan en klik <em>Verder</em>.
+  </p>
+
+  <form method="post" action="{{ url_for('select') }}" id="compareForm">
+    <input type="hidden" name="isbn" value="{{ isbn }}">
+
+    <div class="source-grid">
+      {% for rec in hits %}
+        <label class="source-card" data-source="{{ rec.source }}">
+          <div class="source-card-header">
+            <input type="checkbox" name="selected" value="{{ rec.source }}"
+                   class="source-checkbox">
+            <span class="source-name">{{ rec.source }}</span>
+            <span class="fetch-time">{{ rec.fetch_ms }}ms</span>
+          </div>
+
+          <dl class="source-data">
+            {% if rec.title %}
+              <dt>Titel</dt><dd>{{ rec.title }}</dd>
+            {% endif %}
+            {% if rec.subtitle %}
+              <dt>Ondertitel</dt><dd>{{ rec.subtitle }}</dd>
+            {% endif %}
+            {% if rec.authors %}
+              <dt>Auteur(s)</dt><dd>{{ rec.authors|join('; ') }}</dd>
+            {% endif %}
+            {% if rec.publish_place or rec.publishers %}
+              <dt>Uitgave</dt>
+              <dd>
+                {%- if rec.publish_place -%}{{ rec.publish_place }}{% if rec.publishers %} : {% endif %}{% endif -%}
+                {{ rec.publishers|join(', ') }}
+                {%- if rec.publish_date %} ({{ rec.publish_date }}){% endif -%}
+              </dd>
+            {% endif %}
+            {% if rec.pagecount %}
+              <dt>Paginas</dt><dd>{{ rec.pagecount }}</dd>
+            {% endif %}
+            {% if rec.language %}
+              <dt>Taal</dt><dd>{{ rec.language }}</dd>
+            {% endif %}
+            {% if rec.categories %}
+              <dt>Onderwerpen</dt>
+              <dd class="cats">{{ rec.categories|join(', ') }}</dd>
+            {% endif %}
+            {% if rec.description %}
+              <dt>Samenvatting</dt>
+              <dd class="desc">{{ rec.description[:200] }}{% if rec.description|length > 200 %}…{% endif %}</dd>
+            {% endif %}
+          </dl>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="actions">
+      <a href="{{ url_for('index') }}" class="btn-secondary">↩ Annuleren</a>
+      <a href="{{ url_for('manual', isbn=isbn) }}" class="btn-secondary">
+        ✏ Toch manueel invoeren
+      </a>
+      <button type="submit" class="btn-primary" id="submitBtn" disabled>
+        Verder →
+      </button>
+    </div>
+  </form>
+
+  {# Verborgen sectie: misses + errors, voor diagnose #}
+  {% set misses = all_records | rejectattr('found') | list %}
+  {% if misses %}
+    <details class="misses">
+      <summary>{{ misses|length }} bronnen zonder resultaat</summary>
+      <ul>
+        {% for m in misses %}
+          <li>
+            <strong>{{ m.source }}</strong>
+            {% if m.error %}— fout: {{ m.error }}{% else %}— geen treffer{% endif %}
+            <span class="fetch-time">{{ m.fetch_ms }}ms</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+{% endblock %}

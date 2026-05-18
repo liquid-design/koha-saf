@@ -1,171 +1,27 @@
-<!doctype html>
-<html lang="nl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ISBN Lookup - Koha SAF</title>
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 1em auto; padding: 0 1em; }
-    h1, h2 { color: #333; }
-    label { display: block; margin-top: 0.8em; font-weight: bold; }
-    input[type=text], select { width: 100%; padding: 0.6em; font-size: 1em; box-sizing: border-box; }
-    button { margin-top: 1em; padding: 0.7em 1.5em; font-size: 1em; cursor: pointer; }
-    .flash { padding: 0.8em; margin: 1em 0; border-radius: 4px; }
-    .flash.error { background: #fdd; border: 1px solid #c33; }
-    .flash.success { background: #dfd; border: 1px solid #393; }
-    .book-info { background: #f4f4f4; padding: 1em; border-radius: 4px; }
-    .book-info ul { list-style: none; padding: 0; }
-    .book-info li { margin: 0.3em 0; }
-    hr { margin: 2em 0; border: 0; border-top: 1px solid #ccc; }
-  </style>
-  <script>
-    function focusInput(id) {
-      const el = document.getElementById(id);
-      if (el) el.focus();
-    }
-    window.onload = function() {
-      // Als er al een book is, focus op barcode (volgende stap).
-      // Anders focus op ISBN input.
-      if (document.getElementById('barcode')) {
-        focusInput('barcode');
-      } else {
-        focusInput('isbn');
-      }
-    };
-  </script>
-</head>
-<body>
-  <h1>ISBN Lookup -> Koha</h1>
+{% extends "base.html" %}
+{% block title %}ISBN scannen — SAF{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, msg in messages %}
-      <div class="flash {{ category }}">{{ msg }}</div>
-    {% endfor %}
-  {% endwith %}
-
-  <form method="post" action="{{ url_for('lookup') }}">
+{% block content %}
+  <form method="post" action="{{ url_for('lookup') }}" class="isbn-form">
     <label for="isbn">ISBN scannen of intypen:</label>
-    <input type="text" id="isbn" name="isbn" required autocomplete="off" autofocus
-           value="{{ isbn or '' }}">
+    <input type="text" id="isbn" name="isbn" required
+           autocomplete="off" autofocus
+           inputmode="numeric"
+           pattern="[0-9\- ]+"
+           placeholder="bv. 9789064452130">
     <button type="submit">Opzoeken</button>
   </form>
 
-  {% if book %}
-    <hr>
-    <h2>Gevonden: {{ isbn }}</h2>
-
-    <div class="book-info">
-      <ul>
-        {% for key, value in book.items() %}
-          <li><strong>{{ key }}:</strong>
-            {% if value is iterable and value is not string %}
-              {{ value | join(', ') }}
-            {% else %}
-              {{ value }}
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-
-    {#
-      AF Bibliotheek - definitieve categorielijst.
-      Format per item: (label, value)
-        - label   = wat de gebruiker ziet in de dropdown
-        - value   = wat naar de backend gaat
-                    Bij subcategorieen: "hoofd,sub" zodat routes.py het splitst
-                    in 2 losse MARC 650-velden (beide doorzoekbaar in Koha).
-                    Backend splitst al op komma/puntkomma.
-        - alle values lowercase per request van bibliothecaris
-    #}
-    {% set category_list = [
-      ("Feminisme",                                          "feminisme"),
-      ("Filosofie",                                          "filosofie"),
-      ("Sociologie",                                         "sociologie"),
-      ("Economie",                                           "economie"),
-      ("Oostblok",                                           "oostblok"),
-      ("Joegoslavië",                                        "joegoslavië"),
-      ("Frankrijk",                                          "frankrijk"),
-      ("Biografieën",                                        "biografieën"),
-      ("Marxisme — Marx en Engels",                          "marxisme,marx en engels"),
-      ("Marxisme — Lenin",                                   "marxisme,lenin"),
-      ("Marxisme — Trotski",                                 "marxisme,trotski"),
-      ("Marxisme — Algemeen",                                "marxisme,algemeen"),
-      ("Anarchisme",                                         "anarchisme"),
-      ("Jodendom",                                           "jodendom"),
-      ("Verzet & collaboratie — Verzet en collaboratie in België",  "verzet & collaboratie,verzet en collaboratie in belgië"),
-      ("Verzet & collaboratie — Verzet en collaboratie in Frankrijk", "verzet & collaboratie,verzet en collaboratie in frankrijk"),
-      ("Verzet & collaboratie — WO2 algemeen",               "verzet & collaboratie,wo2 algemeen"),
-      ("Actualiteit",                                        "actualiteit"),
-      ("Midden-Oosten",                                      "midden-oosten"),
-      ("Antifascisme — Extreemrechts Franstalig",            "antifascisme,extreemrechts franstalig"),
-      ("Antifascisme — Extreemrechts Engelstalig",           "antifascisme,extreemrechts engelstalig"),
-      ("Antifascisme — Extreemrechts Nederlandstalig",       "antifascisme,extreemrechts nederlandstalig"),
-      ("Antifascisme — Fascisme",                            "antifascisme,fascisme"),
-      ("Antifascisme — VB en co",                            "antifascisme,vb en co"),
-      ("Antifascisme — Antiracisme",                         "antifascisme,antiracisme"),
-      ("Antifascisme — Dekolonisatie",                       "antifascisme,dekolonisatie"),
-      ("Latijns-Amerika – Afrika – Azië",                    "latijns-amerika – afrika – azië"),
-      ("Geschiedenis algemeen",                              "geschiedenis algemeen"),
-      ("Geschiedenis België",                                "geschiedenis belgië"),
-      ("Belgische arbeidersbeweging",                        "belgische arbeidersbeweging"),
-      ("Communistische Partij",                              "communistische partij"),
-      ("Sociaaldemocratie",                                  "sociaaldemocratie"),
-      ("VS",                                                 "vs"),
-      ("Italië",                                             "italië"),
-      ("Portugal",                                           "portugal"),
-      ("Spanje",                                             "spanje"),
-      ("Griekenland",                                        "griekenland"),
-      ("Nederland",                                          "nederland"),
-      ("Duitsland – Oostenrijk – Zwitserland",               "duitsland – oostenrijk – zwitserland"),
-      ("Scandinavië",                                        "scandinavië"),
-      ("Groot-Brittannië",                                   "groot-brittannië"),
-      ("Fictie met een politieke inslag",                    "fictie met een politieke inslag")
-    ] %}
-
-    <form method="post" action="{{ url_for('save') }}">
-      <input type="hidden" name="isbn" value="{{ isbn }}">
-
-      <label for="barcode">Barcode (verplicht):</label>
-      <input type="text" id="barcode" name="barcode" required autocomplete="off"
-             placeholder="bv. SAF000001">
-
-      <label for="category">Categorie (optioneel, overschrijft auto-detect):</label>
-      <select id="category" name="category">
-        <option value="">-- houd auto-detect --</option>
-        {% for label, value in category_list %}
-          {#
-            Auto-select als de auto-detect categorie matcht met (een component
-            van) deze entry. Case-insensitive. Niet kritisch: gebruiker kan
-            altijd handmatig overschrijven.
-            Namespace nodig omdat Jinja {% set %} binnen {% for %} anders
-            scoped is en niet zichtbaar buiten de loop.
-          #}
-          {% set ns = namespace(selected=false) %}
-          {% if book.categories %}
-            {% set lower_cats = book.categories | map('lower') | list %}
-            {% for component in value.split(',') %}
-              {% if component in lower_cats %}
-                {% set ns.selected = true %}
-              {% endif %}
-            {% endfor %}
-          {% endif %}
-          <option value="{{ value }}"{% if ns.selected %} selected{% endif %}>
-            {{ label }}
-          </option>
-        {% endfor %}
-      </select>
-
-      <button type="submit">MARCXML opslaan</button>
-    </form>
-  {% endif %}
-
-  {% if marcfile %}
-    <hr>
-    <p class="flash success">
-      MARCXML opgeslagen: <code>{{ marcfile }}</code><br>
-      Cron pikt dit binnen 1 minuut op en importeert in Koha.
+  <details class="help">
+    <summary>Wat doet deze applicatie?</summary>
+    <p>
+      Bevraagt parallel zeven bibliografische bronnen (KB-NL, K10plus,
+      DNB, LoC, BnF, Google Books, Open Library), toont de resultaten,
+      en laat je maximaal 2 bronnen mergen voor MARCXML-import in Koha.
     </p>
-  {% endif %}
-</body>
-</html>
+    <p>
+      Bij geen resultaat krijg je een leeg invulformulier zodat je
+      handmatig kan catalogiseren.
+    </p>
+  </details>
+{% endblock %}

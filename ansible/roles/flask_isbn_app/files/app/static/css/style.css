@@ -1,0 +1,352 @@
+/* SAF ISBN scanner — basis-stijl
+   Mobile-first, eenvoudig. Geen frameworks. */
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1em;
+  line-height: 1.5;
+  color: #222;
+  background: #fafafa;
+}
+
+header {
+  border-bottom: 2px solid #c33;
+  padding-bottom: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.4em;
+}
+
+header h1 a {
+  color: #c33;
+  text-decoration: none;
+}
+
+header .subtitle {
+  margin: 0.2em 0 0;
+  font-size: 0.85em;
+  color: #666;
+}
+
+main {
+  background: white;
+  padding: 1.5em;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+code {
+  background: #f0f0f0;
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-family: "SF Mono", Consolas, Monaco, monospace;
+  font-size: 0.95em;
+}
+
+/* ---- Forms ---- */
+label {
+  display: block;
+  margin-top: 0.8em;
+  font-weight: 600;
+  color: #444;
+}
+
+label small {
+  font-weight: normal;
+  color: #888;
+}
+
+input[type=text],
+input[type=number],
+select,
+textarea {
+  width: 100%;
+  padding: 0.6em;
+  font-size: 1em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #c33;
+  box-shadow: 0 0 0 2px rgba(204, 51, 51, 0.15);
+}
+
+fieldset {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 1.5em 0;
+  padding: 1em;
+}
+
+fieldset legend {
+  font-weight: 600;
+  padding: 0 0.5em;
+  color: #c33;
+}
+
+.row {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.row .col {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* ---- Buttons ---- */
+button, .btn-primary, .btn-secondary {
+  display: inline-block;
+  padding: 0.7em 1.5em;
+  font-size: 1em;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.btn-primary, button[type=submit] {
+  background: #c33;
+  color: white;
+}
+
+.btn-primary:hover, button[type=submit]:hover {
+  background: #a22;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #eee;
+  color: #444;
+}
+
+.btn-secondary:hover {
+  background: #ddd;
+}
+
+.actions {
+  margin-top: 1.5em;
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+/* ---- Flashes ---- */
+.flash {
+  padding: 0.8em 1em;
+  margin: 1em 0;
+  border-radius: 4px;
+  border-left: 4px solid;
+}
+
+.flash.error {
+  background: #fee;
+  border-color: #c33;
+  color: #800;
+}
+
+.flash.success {
+  background: #efe;
+  border-color: #393;
+  color: #060;
+}
+
+/* ---- Index ---- */
+.isbn-form input[type=text] {
+  font-size: 1.3em;
+  text-align: center;
+  letter-spacing: 0.5px;
+  font-family: "SF Mono", Consolas, Monaco, monospace;
+}
+
+.help {
+  margin-top: 2em;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ---- Compare grid ---- */
+.instruction {
+  background: #fff8e0;
+  border-left: 4px solid #c90;
+  padding: 0.6em 1em;
+  margin-bottom: 1em;
+}
+
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1em;
+  margin: 1em 0;
+}
+
+.source-card {
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  padding: 0.8em;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+  background: #fafafa;
+}
+
+.source-card:hover {
+  border-color: #c33;
+}
+
+.source-card.selected {
+  border-color: #c33;
+  background: #fff5f5;
+}
+
+.source-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.source-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.5em;
+}
+
+.source-checkbox {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.source-name {
+  flex: 1;
+  font-weight: 600;
+  color: #c33;
+}
+
+.fetch-time {
+  font-size: 0.85em;
+  color: #888;
+  font-family: monospace;
+}
+
+.source-data {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.source-data dt {
+  font-weight: 600;
+  color: #555;
+  margin-top: 0.4em;
+}
+
+.source-data dd {
+  margin: 0.1em 0 0 0;
+  color: #333;
+}
+
+.source-data dd.desc {
+  font-style: italic;
+  color: #666;
+}
+
+.source-data dd.cats {
+  font-size: 0.85em;
+}
+
+/* ---- No results ---- */
+.no-results {
+  text-align: center;
+  padding: 1.5em;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.no-results h2 {
+  color: #c33;
+}
+
+.no-results .actions {
+  justify-content: center;
+}
+
+.diagnostics {
+  margin-top: 1.5em;
+}
+
+.diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5em;
+  font-size: 0.9em;
+}
+
+.diag-table th,
+.diag-table td {
+  text-align: left;
+  padding: 0.4em 0.8em;
+  border-bottom: 1px solid #eee;
+}
+
+.diag-table th {
+  background: #f5f5f5;
+}
+
+.ok    { color: #060; }
+.miss  { color: #888; }
+.err   { color: #c00; font-family: monospace; font-size: 0.85em; }
+
+.misses {
+  margin-top: 1.5em;
+  font-size: 0.9em;
+}
+
+.misses ul {
+  padding-left: 1.5em;
+}
+
+/* ---- Saved ---- */
+.saved {
+  text-align: center;
+  padding: 2em 1em;
+}
+
+.saved h2 {
+  color: #060;
+}
+
+/* ---- Mobile tweaks ---- */
+@media (max-width: 600px) {
+  body { padding: 0.5em; }
+  main { padding: 1em; }
+  .row .col { min-width: 100%; }
+  .actions { flex-direction: column; }
+  .actions a, .actions button { text-align: center; }
+}
