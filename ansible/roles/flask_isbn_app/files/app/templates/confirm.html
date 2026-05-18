@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Bevestigen — {{ isbn }}{% endblock %}
+
+{% block content %}
+  <h2>
+    {% if is_manual %}Manueel invoeren{% else %}Bevestigen{% endif %}:
+    <code>{{ isbn }}</code>
+  </h2>
+
+  {% if not is_manual %}
+    <p class="instruction">
+      Bron: <strong>{{ book.source }}</strong>.
+      Pas indien nodig aan, vul barcode + categorie in, en sla op.
+    </p>
+  {% else %}
+    <p class="instruction">
+      Geen bron leverde data. Vul de velden zelf in.
+    </p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('save') }}" class="confirm-form">
+    <input type="hidden" name="isbn" value="{{ isbn }}">
+    <input type="hidden" name="source" value="{{ book.source }}">
+
+    <fieldset>
+      <legend>Bibliografisch</legend>
+
+      <label for="title">Titel:</label>
+      <input type="text" id="title" name="title"
+             value="{{ book.title or '' }}"
+             required>
+
+      <label for="subtitle">Ondertitel:</label>
+      <input type="text" id="subtitle" name="subtitle"
+             value="{{ book.subtitle or '' }}">
+
+      <label for="authors">
+        Auteur(s) <small>(scheiden met puntkomma)</small>:
+      </label>
+      <input type="text" id="authors" name="authors"
+             value="{{ book.authors|join('; ') }}">
+
+      <label for="publishers">
+        Uitgever(s) <small>(scheiden met puntkomma)</small>:
+      </label>
+      <input type="text" id="publishers" name="publishers"
+             value="{{ book.publishers|join('; ') }}">
+
+      <div class="row">
+        <div class="col">
+          <label for="publish_place">Uitgaveplaats:</label>
+          <input type="text" id="publish_place" name="publish_place"
+                 value="{{ book.publish_place or '' }}">
+        </div>
+        <div class="col">
+          <label for="publish_date">Jaar:</label>
+          <input type="text" id="publish_date" name="publish_date"
+                 value="{{ book.publish_date or '' }}"
+                 inputmode="numeric" pattern="[0-9]{4}">
+        </div>
+        <div class="col">
+          <label for="language">Taal <small>(ISO 639-3)</small>:</label>
+          <input type="text" id="language" name="language"
+                 value="{{ book.language or '' }}"
+                 placeholder="nld / fre / eng"
+                 maxlength="3" size="5">
+        </div>
+        <div class="col">
+          <label for="pagecount">Aantal paginas:</label>
+          <input type="number" id="pagecount" name="pagecount"
+                 value="{{ book.pagecount or '' }}"
+                 min="1" max="9999">
+        </div>
+      </div>
+
+      <label for="description">Samenvatting / flaptekst:</label>
+      <textarea id="description" name="description" rows="4">{{ book.description or '' }}</textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Koha-specifiek</legend>
+
+      <label for="barcode">Barcode <small>(verplicht)</small>:</label>
+      <input type="text" id="barcode" name="barcode" required
+             autocomplete="off"
+             placeholder="bv. SAF000001">
+
+      <label for="category">SAF-categorie:</label>
+      <select id="category" name="category">
+        <option value="">-- geen categorie --</option>
+        {% for label, value in categories %}
+          {# Auto-select als de bron-categorie matcht.
+             Namespace nodig omdat Jinja {% set %} binnen for-loop scope heeft #}
+          {% set ns = namespace(selected=false) %}
+          {% if book.categories %}
+            {% set lower_cats = book.categories | map('lower') | list %}
+            {% for component in value.split(',') %}
+              {% if component in lower_cats %}
+                {% set ns.selected = true %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          <option value="{{ value }}"{% if ns.selected %} selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </fieldset>
+
+    <div class="actions">
+      <a href="{{ url_for('index') }}" class="btn-secondary">↩ Annuleren</a>
+      <button type="submit" class="btn-primary">MARCXML opslaan</button>
+    </div>
+  </form>
+{% endblock %}

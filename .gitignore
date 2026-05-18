@@ -25,3 +25,6 @@ __pycache__/
 
 # isbn txt om te testen
 isbn-nummers.txt
+
+# zip files geen goed idee
+*.zip

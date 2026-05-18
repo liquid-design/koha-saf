@@ -9,6 +9,8 @@
 #   - Beide users (flask-isbn + bib-koha) zitten in group 'koha-import'
 #   - SetGID bit (mode 2775) zorgt dat nieuwe bestanden de juiste group erven
 #   - Apache reverse proxy op scan.<domain> -> 127.0.0.1:5000
+#
+# Gebruik: ansible-playbook -i inventory/terraform.py -l test playbooks/10-flask-isbn.yml
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -25,9 +27,6 @@
 # ----------------------------------------------------------------------------
 # 2. Users en groups
 # ----------------------------------------------------------------------------
-# Eerst de groups expliciet aanmaken. De user module faalt anders met
-# "Group flask-isbn does not exist" als 'group:' verwijst naar een
-# nog niet bestaande group.
 - name: Maak shared group koha-import aan
   group:
     name: "{{ koha_import_group }}"
@@ -70,16 +69,7 @@
     group: "{{ flask_group }}"
     mode: '0755'
 
-- name: Maak app/templates dirs aan
-  file:
-    path: "{{ flask_app_dir }}/app/templates"
-    state: directory
-    owner: "{{ flask_user }}"
-    group: "{{ flask_group }}"
-    mode: '0755'
-
-# Staging-dir: setgid bit (2) zorgt dat nieuwe files de group erven van de dir.
-# 775 = rwxrwxr-x: owner+group lezen+schrijven, others alleen traverse.
+# Staging-dir: setgid bit zorgt dat nieuwe files de group erven van de dir.
 - name: Maak staging directory aan met setgid bit
   file:
     path: "{{ flask_staging_dir }}"
@@ -91,46 +81,14 @@
 # ----------------------------------------------------------------------------
 # 4. App-bestanden deployen
 # ----------------------------------------------------------------------------
-- name: Deploy isbn_lookup.py
-  copy:
-    src: app/isbn_lookup.py
-    dest: "{{ flask_app_dir }}/isbn_lookup.py"
-    owner: "{{ flask_user }}"
-    group: "{{ flask_group }}"
-    mode: '0644'
-  notify: restart flask isbn
-
+# Met de gemodulariseerde codebase (sources/, templates/, static/) is een
+# recursieve copy schoner dan per-file. We syncen heel app/ in één keer.
+# Voordeel: nieuwe sources/<naam>.py wordt automatisch meegenomen, geen
+# task-edit nodig.
 - name: Deploy run.py
   copy:
-    src: app/run.py
+    src: run.py
     dest: "{{ flask_app_dir }}/run.py"
-    owner: "{{ flask_user }}"
-    group: "{{ flask_group }}"
-    mode: '0644'
-  notify: restart flask isbn
-
-- name: Deploy app/__init__.py
-  copy:
-    src: app/__init__.py
-    dest: "{{ flask_app_dir }}/app/__init__.py"
-    owner: "{{ flask_user }}"
-    group: "{{ flask_group }}"
-    mode: '0644'
-  notify: restart flask isbn
-
-- name: Deploy app/routes.py
-  copy:
-    src: app/routes.py
-    dest: "{{ flask_app_dir }}/app/routes.py"
-    owner: "{{ flask_user }}"
-    group: "{{ flask_group }}"
-    mode: '0644'
-  notify: restart flask isbn
-
-- name: Deploy app/templates/index.html
-  copy:
-    src: app/templates/index.html
-    dest: "{{ flask_app_dir }}/app/templates/index.html"
     owner: "{{ flask_user }}"
     group: "{{ flask_group }}"
     mode: '0644'
@@ -138,11 +96,44 @@
 
 - name: Deploy requirements.txt
   copy:
-    src: app/requirements.txt
+    src: requirements.txt
     dest: "{{ flask_app_dir }}/requirements.txt"
     owner: "{{ flask_user }}"
     group: "{{ flask_group }}"
     mode: '0644'
+
+- name: Deploy app package (recursief)
+  copy:
+    src: app/
+    dest: "{{ flask_app_dir }}/app/"
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0644'
+    directory_mode: '0755'
+  notify: restart flask isbn
+
+# Zorg dat sources/ map executable is voor traversal
+- name: Zet directory permissies in app/
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ flask_user }}"
+    group: "{{ flask_group }}"
+    mode: '0755'
+  loop:
+    - "{{ flask_app_dir }}/app"
+    - "{{ flask_app_dir }}/app/sources"
+    - "{{ flask_app_dir }}/app/templates"
+    - "{{ flask_app_dir }}/app/static"
+    - "{{ flask_app_dir }}/app/static/css"
+    - "{{ flask_app_dir }}/app/static/js"
+
+# Verwijder oude isbn_lookup.py uit vorige deploys (was top-level)
+- name: Verwijder verouderde isbn_lookup.py uit vorige deploy
+  file:
+    path: "{{ flask_app_dir }}/isbn_lookup.py"
+    state: absent
+  notify: restart flask isbn
 
 # ----------------------------------------------------------------------------
 # 5. Python virtual environment
@@ -247,9 +238,7 @@
     creates: "/etc/apache2/sites-enabled/{{ scan_domain }}.conf"
   notify: reload apache
 
-# Certbot maakt soms automatisch een -le-ssl variant aan. Disable die om
-# conflicten met onze eigen vhost te vermijden (zelfde patroon als
-# koha_apache-tls-finalize role).
+# Certbot maakt soms automatisch een -le-ssl variant aan.
 - name: Disable automatische certbot vhost
   command: "a2dissite {{ scan_domain }}-le-ssl.conf"
   args:

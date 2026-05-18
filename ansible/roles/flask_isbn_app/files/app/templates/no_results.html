@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Geen resultaten — {{ isbn }}{% endblock %}
+
+{% block content %}
+  <div class="no-results">
+    <h2>Geen bibliografische data gevonden</h2>
+    <p>
+      Voor ISBN <code>{{ isbn }}</code> leverde geen enkele bron een resultaat.
+    </p>
+
+    <div class="actions">
+      <a href="{{ url_for('index') }}" class="btn-secondary">
+        ↩ ISBN corrigeren
+      </a>
+      <a href="{{ url_for('manual', isbn=isbn) }}" class="btn-primary">
+        ✏ Manueel invoeren
+      </a>
+    </div>
+  </div>
+
+  <details class="diagnostics">
+    <summary>Wat hebben we geprobeerd?</summary>
+    <table class="diag-table">
+      <thead>
+        <tr><th>Bron</th><th>Resultaat</th><th>Tijd</th></tr>
+      </thead>
+      <tbody>
+        {% for rec in records %}
+          <tr>
+            <td>{{ rec.source }}</td>
+            <td>
+              {%- if rec.error -%}
+                <span class="err">fout: {{ rec.error }}</span>
+              {%- elif rec.found -%}
+                <span class="ok">data</span>
+              {%- else -%}
+                <span class="miss">geen treffer</span>
+              {%- endif -%}
+            </td>
+            <td>{{ rec.fetch_ms }}ms</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+{% endblock %}
