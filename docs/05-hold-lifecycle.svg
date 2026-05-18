@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 680 460" role="img">
+<title>Lifecycle van een reservering (hold) in Koha</title>
+<desc>Tijdlijn van het plaatsen van een hold tot afhalen of vervallen, inclusief de twee mogelijke startpunten.</desc>
+
+<defs>
+<style>
+.t { font: 500 14px "Anthropic Sans", sans-serif; fill: #2C2C2A; }
+.ts { font: 400 12px "Anthropic Sans", sans-serif; fill: #5F5E5A; }
+.th { font: 500 14px "Anthropic Sans", sans-serif; fill: #2C2C2A; }
+.label { font: 400 12px "Anthropic Sans", sans-serif; fill: #444441; }
+
+.actor-bg { fill: #F1EFE8; stroke: #888780; stroke-width: 0.5; }
+.actor-text { fill: #2C2C2A; }
+
+.event-bg { fill: #E1F5EE; stroke: #0F6E56; stroke-width: 0.5; }
+.event-text { fill: #085041; }
+.event-sub { fill: #0F6E56; }
+
+.warn-bg { fill: #FAEEDA; stroke: #BA7517; stroke-width: 0.5; }
+.warn-text { fill: #633806; }
+.warn-sub { fill: #854F0B; }
+
+.cancel-bg { fill: #FCEBEB; stroke: #E24B4A; stroke-width: 0.5; }
+.cancel-text { fill: #501313; }
+.cancel-sub { fill: #791F1F; }
+</style>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+  <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<text class="th" x="40" y="34">Lifecycle van een hold</text>
+<text class="ts" x="40" y="54">Twee startpunten: lezer plaatst via OPAC, of staff plaatst aan de balie. Verder identiek pad.</text>
+
+<rect class="actor-bg" x="40" y="80" width="120" height="36" rx="6"/>
+<text class="t actor-text" x="100" y="98" text-anchor="middle" dominant-baseline="central">Lezer (OPAC)</text>
+
+<rect class="actor-bg" x="40" y="160" width="120" height="36" rx="6"/>
+<text class="t actor-text" x="100" y="178" text-anchor="middle" dominant-baseline="central">Staff (balie)</text>
+
+<rect class="event-bg" x="200" y="76" width="160" height="44" rx="6"/>
+<text class="th event-text" x="280" y="92" text-anchor="middle" dominant-baseline="central">Hold plaatsen</text>
+<text class="ts event-sub" x="280" y="110" text-anchor="middle" dominant-baseline="central">via OPAC</text>
+
+<rect class="event-bg" x="200" y="156" width="160" height="44" rx="6"/>
+<text class="th event-text" x="280" y="172" text-anchor="middle" dominant-baseline="central">Hold plaatsen</text>
+<text class="ts event-sub" x="280" y="190" text-anchor="middle" dominant-baseline="central">aan balie voor lezer</text>
+
+<line x1="160" y1="98" x2="200" y2="98" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="160" y1="178" x2="200" y2="178" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="event-bg" x="400" y="116" width="160" height="44" rx="6"/>
+<text class="th event-text" x="480" y="132" text-anchor="middle" dominant-baseline="central">Pending</text>
+<text class="ts event-sub" x="480" y="150" text-anchor="middle" dominant-baseline="central">in wachtrij</text>
+
+<path d="M360 98 L380 98 L380 138 L398 138" fill="none" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M360 178 L380 178 L380 138 L398 138" fill="none" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="warn-bg" x="40" y="240" width="200" height="60" rx="6"/>
+<text class="th warn-text" x="140" y="260" text-anchor="middle" dominant-baseline="central">Item komt beschikbaar</text>
+<text class="ts warn-sub" x="140" y="278" text-anchor="middle" dominant-baseline="central">inname met hold trigger</text>
+<text class="ts warn-sub" x="140" y="294" text-anchor="middle" dominant-baseline="central">of item al op de plank</text>
+
+<path d="M480 160 L480 200 L240 270" fill="none" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="event-bg" x="280" y="240" width="160" height="60" rx="6"/>
+<text class="th event-text" x="360" y="260" text-anchor="middle" dominant-baseline="central">Waiting</text>
+<text class="ts event-sub" x="360" y="278" text-anchor="middle" dominant-baseline="central">staff legt apart op</text>
+<text class="ts event-sub" x="360" y="294" text-anchor="middle" dominant-baseline="central">hold-plank, e-mail</text>
+
+<line x1="240" y1="270" x2="278" y2="270" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="event-bg" x="480" y="240" width="160" height="60" rx="6"/>
+<text class="th event-text" x="560" y="260" text-anchor="middle" dominant-baseline="central">Pickup window</text>
+<text class="ts event-sub" x="560" y="278" text-anchor="middle" dominant-baseline="central">7 dagen om af te halen</text>
+<text class="ts event-sub" x="560" y="294" text-anchor="middle" dominant-baseline="central">(per circulatieregel)</text>
+
+<line x1="440" y1="270" x2="478" y2="270" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="event-bg" x="40" y="350" width="240" height="60" rx="6"/>
+<text class="th event-text" x="160" y="370" text-anchor="middle" dominant-baseline="central">Lezer haalt af</text>
+<text class="ts event-sub" x="160" y="388" text-anchor="middle" dominant-baseline="central">staff doet uitlening</text>
+<text class="ts event-sub" x="160" y="404" text-anchor="middle" dominant-baseline="central">hold wordt verwijderd</text>
+
+<rect class="cancel-bg" x="320" y="350" width="320" height="60" rx="6"/>
+<text class="th cancel-text" x="480" y="370" text-anchor="middle" dominant-baseline="central">Niet afgehaald binnen window</text>
+<text class="ts cancel-sub" x="480" y="388" text-anchor="middle" dominant-baseline="central">hold vervalt automatisch, item terug naar voorraad</text>
+<text class="ts cancel-sub" x="480" y="404" text-anchor="middle" dominant-baseline="central">eventueel "expired hold charge" op lezer</text>
+
+<path d="M520 300 L520 320 L160 320 L160 348" fill="none" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M600 300 L600 320 L480 320 L480 348" fill="none" stroke="#444441" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

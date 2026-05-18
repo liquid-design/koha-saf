@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 680 540" role="img">
+<title>Hoe Koha een circulatieregel kiest op basis van specificiteit</title>
+<desc>Voorbeeldscenario waarin een lezer een boek leent en Koha de meest specifieke matchende regel selecteert uit de matrix.</desc>
+
+<defs>
+<style>
+.t { font: 500 14px "Anthropic Sans", sans-serif; fill: #2C2C2A; }
+.ts { font: 400 12px "Anthropic Sans", sans-serif; fill: #5F5E5A; }
+.th { font: 500 14px "Anthropic Sans", sans-serif; fill: #2C2C2A; }
+.code { font: 500 13px "ui-monospace", monospace; fill: #2C2C2A; }
+.scenario-bg { fill: #EEEDFE; stroke: #534AB7; stroke-width: 0.5; }
+.scenario-text { fill: #26215C; }
+.rule-bg { fill: #F1EFE8; stroke: #888780; stroke-width: 0.5; }
+.rule-winner { fill: #EAF3DE; stroke: #639922; stroke-width: 1.5; }
+.rule-text { fill: #2C2C2A; }
+.rule-winner-text { fill: #173404; }
+.rule-skip-text { fill: #501313; }
+.score-bg { fill: #FAEEDA; stroke: #BA7517; stroke-width: 0.5; }
+.score-text { fill: #633806; }
+.score-text-light { fill: #854F0B; }
+</style>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+  <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="scenario-bg" x="40" y="30" width="600" height="68" rx="8"/>
+<text class="th scenario-text" x="60" y="54" dominant-baseline="central">Scenario</text>
+<text class="ts scenario-text" x="60" y="76" dominant-baseline="central">Lezer Lien (categorie A) leent een Boek (BK) uit branch SAF.</text>
+<text class="ts scenario-text" x="60" y="90" dominant-baseline="central">Welke regel uit de matrix gebruikt Koha?</text>
+
+<text class="th rule-text" x="40" y="125" dominant-baseline="central">Beschikbare regels (van meest naar minst specifiek)</text>
+<text class="ts rule-skip-text" x="500" y="125" dominant-baseline="central">specificiteit-score</text>
+
+<rect class="rule-winner" x="40" y="140" width="500" height="50" rx="6"/>
+<text class="th rule-winner-text" x="55" y="160" dominant-baseline="central">Regel 1</text>
+<text class="code" x="55" y="180" dominant-baseline="central">branch=SAF · category=A · itemtype=BK</text>
+<rect class="score-bg" x="555" y="140" width="85" height="50" rx="6"/>
+<text class="th score-text" x="597" y="160" text-anchor="middle" dominant-baseline="central">3/3</text>
+<text class="ts score-text-light" x="597" y="180" text-anchor="middle" dominant-baseline="central">winnaar</text>
+
+<rect class="rule-bg" x="40" y="200" width="500" height="50" rx="6"/>
+<text class="th rule-text" x="55" y="220" dominant-baseline="central">Regel 2</text>
+<text class="code" x="55" y="240" dominant-baseline="central">branch=SAF · category=A · itemtype=All</text>
+<rect class="score-bg" x="555" y="200" width="85" height="50" rx="6"/>
+<text class="th score-text" x="597" y="220" text-anchor="middle" dominant-baseline="central">2/3</text>
+<text class="ts score-text-light" x="597" y="240" text-anchor="middle" dominant-baseline="central">overschaduwd</text>
+
+<rect class="rule-bg" x="40" y="260" width="500" height="50" rx="6"/>
+<text class="th rule-text" x="55" y="280" dominant-baseline="central">Regel 3</text>
+<text class="code" x="55" y="300" dominant-baseline="central">branch=All · category=A · itemtype=All</text>
+<rect class="score-bg" x="555" y="260" width="85" height="50" rx="6"/>
+<text class="th score-text" x="597" y="280" text-anchor="middle" dominant-baseline="central">1/3</text>
+<text class="ts score-text-light" x="597" y="300" text-anchor="middle" dominant-baseline="central">overschaduwd</text>
+
+<rect class="rule-bg" x="40" y="320" width="500" height="50" rx="6"/>
+<text class="th rule-text" x="55" y="340" dominant-baseline="central">Regel 4 (fallback)</text>
+<text class="code" x="55" y="360" dominant-baseline="central">branch=All · category=All · itemtype=All</text>
+<rect class="score-bg" x="555" y="320" width="85" height="50" rx="6"/>
+<text class="th score-text" x="597" y="340" text-anchor="middle" dominant-baseline="central">0/3</text>
+<text class="ts score-text-light" x="597" y="360" text-anchor="middle" dominant-baseline="central">overschaduwd</text>
+
+<path d="M340 100 L340 130" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="scenario-bg" x="40" y="400" width="600" height="100" rx="8"/>
+<text class="th scenario-text" x="60" y="424" dominant-baseline="central">Hoe Koha de score berekent</text>
+<text class="ts scenario-text" x="60" y="446" dominant-baseline="central">+1 punt voor elke dimensie (branch, category, itemtype) die exact match is met de aanvraag.</text>
+<text class="ts scenario-text" x="60" y="464" dominant-baseline="central">"All" levert 0 punten op. Hoogste score wint, ongeacht de volgorde in de UI.</text>
+<text class="ts scenario-text" x="60" y="486" dominant-baseline="central">Zonder fallback (regel 4) zouden ongedekte combinaties simpelweg falen.</text>
+</svg>

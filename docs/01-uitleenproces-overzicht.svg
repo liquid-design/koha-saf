@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 680 420" role="img">
+<title>Het Koha-uitleenproces in zes stappen</title>
+<desc>Stroomdiagram van inschrijving tot boetes, met indicatie of de actie bij staff of OPAC plaatsvindt.</desc>
+
+<defs>
+<style>
+.t { font: 500 14px "Anthropic Sans", sans-serif; }
+.ts { font: 400 12px "Anthropic Sans", sans-serif; }
+.th { font: 500 14px "Anthropic Sans", sans-serif; }
+.box-staff { fill: #E1F5EE; stroke: #0F6E56; stroke-width: 0.5; }
+.box-opac { fill: #E6F1FB; stroke: #0C447C; stroke-width: 0.5; }
+.box-both { fill: #F1EFE8; stroke: #5F5E5A; stroke-width: 0.5; }
+.t-staff { fill: #085041; }
+.t-opac { fill: #0C447C; }
+.t-both { fill: #444441; }
+.ts-staff { fill: #0F6E56; }
+.ts-opac { fill: #185FA5; }
+.ts-both { fill: #5F5E5A; }
+.legend-t { font: 400 12px "Anthropic Sans", sans-serif; fill: #444441; }
+</style>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+  <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect class="box-staff" x="40" y="60" width="180" height="60" rx="8"/>
+<text class="th t-staff" x="130" y="86" text-anchor="middle" dominant-baseline="central">1. Inschrijving</text>
+<text class="ts ts-staff" x="130" y="104" text-anchor="middle" dominant-baseline="central">Staff aan balie</text>
+
+<rect class="box-opac" x="250" y="60" width="180" height="60" rx="8"/>
+<text class="th t-opac" x="340" y="86" text-anchor="middle" dominant-baseline="central">2. Zoeken / reserveren</text>
+<text class="ts ts-opac" x="340" y="104" text-anchor="middle" dominant-baseline="central">Lezer via OPAC</text>
+
+<rect class="box-staff" x="460" y="60" width="180" height="60" rx="8"/>
+<text class="th t-staff" x="550" y="86" text-anchor="middle" dominant-baseline="central">3. Uitlenen</text>
+<text class="ts ts-staff" x="550" y="104" text-anchor="middle" dominant-baseline="central">Staff aan balie</text>
+
+<line x1="220" y1="90" x2="248" y2="90" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="430" y1="90" x2="458" y2="90" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M550 122 L550 175" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect class="box-both" x="460" y="190" width="180" height="60" rx="8"/>
+<text class="th t-both" x="550" y="216" text-anchor="middle" dominant-baseline="central">4. Verlengen</text>
+<text class="ts ts-both" x="550" y="234" text-anchor="middle" dominant-baseline="central">OPAC of balie</text>
+
+<rect class="box-staff" x="250" y="190" width="180" height="60" rx="8"/>
+<text class="th t-staff" x="340" y="216" text-anchor="middle" dominant-baseline="central">5. Inname</text>
+<text class="ts ts-staff" x="340" y="234" text-anchor="middle" dominant-baseline="central">Staff aan balie</text>
+
+<rect class="box-staff" x="40" y="190" width="180" height="60" rx="8"/>
+<text class="th t-staff" x="130" y="216" text-anchor="middle" dominant-baseline="central">6. Boete / verloren</text>
+<text class="ts ts-staff" x="130" y="234" text-anchor="middle" dominant-baseline="central">Indien nodig</text>
+
+<line x1="458" y1="220" x2="430" y2="220" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="248" y1="220" x2="220" y2="220" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<text class="th t-both" x="40" y="310">Wie doet wat</text>
+<rect x="40" y="325" width="14" height="14" rx="3" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text class="legend-t" x="62" y="334" dominant-baseline="central">Staff aan balie</text>
+<rect x="180" y="325" width="14" height="14" rx="3" fill="#E6F1FB" stroke="#0C447C" stroke-width="0.5"/>
+<text class="legend-t" x="202" y="334" dominant-baseline="central">Lezer via OPAC</text>
+<rect x="320" y="325" width="14" height="14" rx="3" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text class="legend-t" x="342" y="334" dominant-baseline="central">Beide kanalen mogelijk</text>
+
+<text class="legend-t" x="40" y="380">Iteratie: na inname kan dezelfde lezer opnieuw beginnen bij stap 2 (zoeken).</text>
+</svg>

@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 680 540" role="img">
+<title>De drie rollen en hun rechten in Koha</title>
+<desc>Admin, staff en lezer met de modules waar elk wel of geen toegang toe heeft.</desc>
+
+<defs>
+<style>
+.t { font: 500 14px "Anthropic Sans", sans-serif; }
+.ts { font: 400 12px "Anthropic Sans", sans-serif; }
+.th { font: 500 14px "Anthropic Sans", sans-serif; }
+.role-admin-bg { fill: #FAEEDA; stroke: #BA7517; stroke-width: 0.5; }
+.role-staff-bg { fill: #E1F5EE; stroke: #0F6E56; stroke-width: 0.5; }
+.role-lezer-bg { fill: #E6F1FB; stroke: #185FA5; stroke-width: 0.5; }
+.role-admin-text { fill: #633806; }
+.role-admin-sub { fill: #854F0B; }
+.role-staff-text { fill: #085041; }
+.role-staff-sub { fill: #0F6E56; }
+.role-lezer-text { fill: #0C447C; }
+.role-lezer-sub { fill: #185FA5; }
+.module-bg { fill: #F1EFE8; stroke: #B4B2A9; stroke-width: 0.5; }
+.module-text { fill: #2C2C2A; }
+.access-yes { fill: #97C459; stroke: #639922; stroke-width: 0.5; }
+.access-no { fill: #F0997B; stroke: #993C1D; stroke-width: 0.5; }
+.access-some { fill: #FAC775; stroke: #BA7517; stroke-width: 0.5; }
+.access-text { font: 500 11px "Anthropic Sans", sans-serif; fill: #2C2C2A; }
+</style>
+</defs>
+
+<rect class="role-admin-bg" x="200" y="30" width="140" height="56" rx="8"/>
+<text class="th role-admin-text" x="270" y="50" text-anchor="middle" dominant-baseline="central">Admin</text>
+<text class="ts role-admin-sub" x="270" y="68" text-anchor="middle" dominant-baseline="central">superlibrarian</text>
+
+<rect class="role-staff-bg" x="350" y="30" width="140" height="56" rx="8"/>
+<text class="th role-staff-text" x="420" y="50" text-anchor="middle" dominant-baseline="central">Staff</text>
+<text class="ts role-staff-sub" x="420" y="68" text-anchor="middle" dominant-baseline="central">categorie S</text>
+
+<rect class="role-lezer-bg" x="500" y="30" width="140" height="56" rx="8"/>
+<text class="th role-lezer-text" x="570" y="50" text-anchor="middle" dominant-baseline="central">Lezer</text>
+<text class="ts role-lezer-sub" x="570" y="68" text-anchor="middle" dominant-baseline="central">categorie A of J</text>
+
+<rect class="module-bg" x="40" y="100" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="118" dominant-baseline="central">System preferences</text>
+<rect class="access-yes" x="200" y="100" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="118" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-no" x="350" y="100" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="118" text-anchor="middle" dominant-baseline="central">Geen toegang</text>
+<rect class="access-no" x="500" y="100" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="118" text-anchor="middle" dominant-baseline="central">Geen toegang</text>
+
+<rect class="module-bg" x="40" y="142" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="160" dominant-baseline="central">Circulatieregels</text>
+<rect class="access-yes" x="200" y="142" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="160" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-no" x="350" y="142" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="160" text-anchor="middle" dominant-baseline="central">Alleen lezen</text>
+<rect class="access-no" x="500" y="142" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="160" text-anchor="middle" dominant-baseline="central">N.v.t.</text>
+
+<rect class="module-bg" x="40" y="184" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="202" dominant-baseline="central">Patrons / Lezers</text>
+<rect class="access-yes" x="200" y="184" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="202" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-yes" x="350" y="184" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="202" text-anchor="middle" dominant-baseline="central">Toevoegen / wijzigen</text>
+<rect class="access-some" x="500" y="184" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="202" text-anchor="middle" dominant-baseline="central">Eigen account</text>
+
+<rect class="module-bg" x="40" y="226" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="244" dominant-baseline="central">Uitlenen / innemen</text>
+<rect class="access-yes" x="200" y="226" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="244" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-yes" x="350" y="226" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="244" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-no" x="500" y="226" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="244" text-anchor="middle" dominant-baseline="central">Geen toegang</text>
+
+<rect class="module-bg" x="40" y="268" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="286" dominant-baseline="central">Verlengen</text>
+<rect class="access-yes" x="200" y="268" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="286" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-yes" x="350" y="268" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="286" text-anchor="middle" dominant-baseline="central">Aan balie</text>
+<rect class="access-some" x="500" y="268" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="286" text-anchor="middle" dominant-baseline="central">Via OPAC, eigen</text>
+
+<rect class="module-bg" x="40" y="310" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="328" dominant-baseline="central">Reserveringen</text>
+<rect class="access-yes" x="200" y="310" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="328" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-yes" x="350" y="310" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="328" text-anchor="middle" dominant-baseline="central">Voor lezers</text>
+<rect class="access-some" x="500" y="310" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="328" text-anchor="middle" dominant-baseline="central">Eigen, via OPAC</text>
+
+<rect class="module-bg" x="40" y="352" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="370" dominant-baseline="central">Boetes / kosten</text>
+<rect class="access-yes" x="200" y="352" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="370" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-yes" x="350" y="352" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="370" text-anchor="middle" dominant-baseline="central">Innen / kwijtschelden</text>
+<rect class="access-some" x="500" y="352" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="370" text-anchor="middle" dominant-baseline="central">Eigen inzien</text>
+
+<rect class="module-bg" x="40" y="394" width="150" height="36" rx="6"/>
+<text class="t module-text" x="50" y="412" dominant-baseline="central">Catalogiseren</text>
+<rect class="access-yes" x="200" y="394" width="140" height="36" rx="6"/>
+<text class="access-text" x="270" y="412" text-anchor="middle" dominant-baseline="central">Volledig</text>
+<rect class="access-some" x="350" y="394" width="140" height="36" rx="6"/>
+<text class="access-text" x="420" y="412" text-anchor="middle" dominant-baseline="central">Mits flag</text>
+<rect class="access-no" x="500" y="394" width="140" height="36" rx="6"/>
+<text class="access-text" x="570" y="412" text-anchor="middle" dominant-baseline="central">Alleen zoeken</text>
+
+<text class="th module-text" x="40" y="470">Toegangsniveau</text>
+<rect class="access-yes" x="40" y="485" width="14" height="14" rx="3"/>
+<text class="ts module-text" x="62" y="494" dominant-baseline="central">Volledige toegang</text>
+<rect class="access-some" x="220" y="485" width="14" height="14" rx="3"/>
+<text class="ts module-text" x="242" y="494" dominant-baseline="central">Beperkt of voorwaardelijk</text>
+<rect class="access-no" x="440" y="485" width="14" height="14" rx="3"/>
+<text class="ts module-text" x="462" y="494" dominant-baseline="central">Geen of alleen-lezen</text>
+</svg>
