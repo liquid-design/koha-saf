@@ -56,9 +56,11 @@ koha_sysprefs:
   - pref: CalendarFirstDayOfWeek
     value: "1"
 
-  # Postadres formaat - 'frenchstyle' is dichtst bij BE-conventie
+  # Geldige waarden in Koha 25.05: us, de, fr.
+  # 'fr' is voor Belgisch publiek het meest geschikt
+  # (BE zit niet in de optie-lijst).
   - pref: AddressFormat
-    value: "frenchstyle"
+    value: "fr"
 
   # Sortering van facetten: unicode-bewust voor accenten (é, ë)
   - pref: FacetSortingLocale
