@@ -1,0 +1,55 @@
+# ============================================================================
+# ROLE: koha_languages
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# Installeert Koha interface-vertalingen voor Nederlands, Frans en Engels.
+# Standaard installeert Koha alleen Engels. Zonder deze stap zien
+# gebruikers wel een taal-dropdown maar valt Koha terug op Engels.
+#
+# Doet wel:
+# - Installeer translation files via koha-translate
+# - Voor zowel OPAC als staff interface
+#
+# Doet niet:
+# - Notices vertalen (dat gaat via TranslateNotices syspref + manuele
+#   vertalingen in Tools → Notices and slips)
+# - Talen activeren in OPACLanguages / StaffInterfaceLanguages
+#   (dat zit in koha_business_sysprefs)
+# ============================================================================
+
+- name: Assert Koha instance bestaat
+  stat:
+    path: "/etc/koha/sites/{{ koha_instance }}"
+  register: koha_site
+  failed_when: not koha_site.stat.exists
+
+# koha-translate verwerkt de .po files in de Koha source en installeert
+# de vertalingen voor het gevraagde taal-code. Mappings:
+#   nl-NL = Nederlands
+#   fr-FR = Frans
+#   de-DE = Duits
+#   en wordt automatisch ondersteund (broncode-taal)
+#
+# Voor Belgisch Frans en Belgisch Nederlands bestaan helaas geen
+# aparte vertalingen — Koha gebruikt fr-FR en nl-NL voor heel het
+# taalgebied.
+- name: Check welke talen al geinstalleerd zijn
+  command: koha-translate --list
+  register: koha_installed_languages
+  changed_when: false
+  failed_when: false
+
+- name: Installeer Koha interface-vertaling
+  command: "koha-translate --install {{ item }}"
+  loop: "{{ koha_languages }}"
+  when:
+    - item not in koha_installed_languages.stdout
+    # Engels is broncode-taal, niet via koha-translate installeren
+    - item != 'en'
+  register: koha_translate_result
+  changed_when: "'has been generated' in koha_translate_result.stdout or
+                 'is up to date' not in koha_translate_result.stdout"
+
+- name: Toon geinstalleerde talen
+  debug:
+    msg: "Talen geinstalleerd: {{ koha_languages | join(', ') }}"

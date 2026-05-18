@@ -1,0 +1,21 @@
+# Defaults voor talen-installatie.
+# Pas aan in group_vars als andere talen nodig zijn.
+
+# Beschikbare Koha taalcodes:
+#   nl-NL = Nederlands
+#   fr-FR = Frans
+#   en    = Engels (broncode-taal, niet via koha-translate)
+#   de-DE = Duits
+#   es-ES = Spaans
+#   it-IT = Italiaans
+#
+# SAF heeft NL/FR/EN beheerders + collectie ook in deze talen
+# (met enkele Duitse werken).
+koha_languages:
+  - nl-NL
+  - fr-FR
+  - en
+
+# Standaard interface-taal bij eerste keer bezoeken OPAC
+# (lezer kan dit aanpassen via OPAC-taalswitcher)
+koha_default_language: nl-NL

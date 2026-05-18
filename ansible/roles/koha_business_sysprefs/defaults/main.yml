@@ -1,9 +1,12 @@
 # Koha systeempreferenties
 # Ingedeeld per domein. Pas waarden aan per omgeving via group_vars.
+# Zie doc 26 voor rationale van elke setting.
 
 koha_sysprefs:
 
-  # --- URLs ---
+  # =========================================================================
+  # URLs
+  # =========================================================================
   # Moet overeenkomen met de Apache vhost domeinen
   - pref: OPACBaseURL
     value: "https://{{ koha_opac_domain }}"
@@ -11,55 +14,181 @@ koha_sysprefs:
   - pref: staffClientBaseURL
     value: "https://{{ koha_intranet_domain }}"
 
-  # --- Taal ---
-  # Koha toont de interface in deze taal
+  # =========================================================================
+  # Talen en lokalisatie
+  # -------------------------------------------------------------------------
+  # SAF werkt drietalig (NL/FR/EN beheerders + lezers).
+  # De language-PACKS zelf worden geinstalleerd door koha_languages role.
+  # Hier activeren we welke beschikbaar zijn voor selectie in de UI.
+  # =========================================================================
+
+  # Standaard-taal van de OPAC bij eerste bezoek
   - pref: language
-    value: "nl"
+    value: "nl-NL"
 
-  - pref: opaclanguages
-    value: "nl"
+  # Welke talen mag de bezoeker kiezen in de OPAC?
+  # Comma-separated (Koha 25.05). Volgorde bepaalt UI display order.
+  - pref: OPACLanguages
+    value: "nl-NL,fr-FR,en"
 
+  # Toon taalswitcher in OPAC (1 = ja, 0 = nee)
+  # Drietalige bibliotheek -> ja
   - pref: opaclanguagesdisplay
-    value: "0"
+    value: "1"
 
-  # --- Bibliotheek identiteit ---
+  # Welke talen mag de medewerker kiezen in de staff client?
+  - pref: StaffInterfaceLanguages
+    value: "nl-NL,fr-FR,en"
+
+  # Notices per lezer in hun voorkeurstaal versturen
+  - pref: TranslateNotices
+    value: "1"
+
+  # Datumformaat: 18.05.2026 (Vlaamse conventie)
+  - pref: dateformat
+    value: "dmydot"
+
+  # 24-uurs klok
+  - pref: TimeFormat
+    value: "24hr"
+
+  # Maandag als eerste dag van de week (Europese conventie)
+  - pref: CalendarFirstDayOfWeek
+    value: "1"
+
+  # Postadres formaat - 'frenchstyle' is dichtst bij BE-conventie
+  - pref: AddressFormat
+    value: "frenchstyle"
+
+  # Sortering van facetten: unicode-bewust voor accenten (é, ë)
+  - pref: FacetSortingLocale
+    value: "nl_BE"
+
+  # =========================================================================
+  # Bibliotheek identiteit
+  # =========================================================================
   - pref: LibraryName
-    value: "Steunpunt Antifacisme"
+    value: "Steunpunt Antifascisme"
 
   - pref: OpacMainUserBlock
     value: "Welkom bij de bibliotheek van het Steunpunt Antifascisme."
 
-  # --- OPAC instellingen ---
-  # Lezers kunnen zelf inloggen op de OPAC
+  # =========================================================================
+  # E-mail (gekoppeld aan SMTP-config in koha_business_smtp role)
+  # =========================================================================
+  #- pref: KohaAdminEmailAddress
+  #  value: "{{ koha_email_from }}"
+
+  #- pref: ReplytoDefault
+  #  value: "{{ koha_email_reply_to }}"
+
+  #- pref: SendAllEmailsTo
+  #  value: "{{ koha_send_all_emails_to | default('') }}"
+
+  # =========================================================================
+  # OPAC en privacy
+  # =========================================================================
   - pref: opacuserlogin
     value: "1"
 
-  # Anonieme zoekopdrachten toegestaan op OPAC
   - pref: OpacPublic
     value: "1"
 
-  # --- Catalogus ---
-  # MARC flavour: MARC21 (standaard voor nieuwe installaties)
+  - pref: PatronSelfRegistration
+    value: "0"
+
+  - pref: OPACShowCheckoutName
+    value: "0"
+
+  - pref: PrivacyPolicyURL
+    value: "https://nl.marxisme.be/privacy/"
+
+  - pref: PrivacyPolicyConsent
+    value: "1"
+
+  # =========================================================================
+  # Patron security
+  # =========================================================================
+  - pref: minPasswordLength
+    value: "8"
+
+  - pref: RequireStrongPassword
+    value: "1"
+
+  # =========================================================================
+  # Catalogus
+  # =========================================================================
   - pref: marcflavour
     value: "MARC21"
 
-  # Koha genereert automatisch barcode voor nieuwe items
   - pref: autoBarcode
     value: "incremental"
 
-  # --- Uitleen ---
-  # Waarschuwing tonen als lezer te laat items heeft
+  - pref: AutoCreateAuthorities
+    value: "1"
+
+  - pref: AggressiveMatchOnISBN
+    value: "1"
+
+  # =========================================================================
+  # Cover images
+  # =========================================================================
+  - pref: OpenLibraryCovers
+    value: "1"
+
+  - pref: GoogleJackets
+    value: "0"
+
+  - pref: AmazonCoverImages
+    value: "0"
+
+  - pref: OPACAmazonCoverImages
+    value: "0"
+
+  # =========================================================================
+  # Uitleen
+  # =========================================================================
   - pref: OverduesBlockCirc
     value: "ask"
 
-  # Uitlenen toestaan als lezer al max aantal items heeft: blokkeren
   - pref: maxreserves
     value: "50"
 
-  # --- Privacy ---
-  # Uitleengeschiedenis bewaren (0 = nooit, 1 = standaard aan, 2 = altijd)
+  # =========================================================================
+  # Privacy: leengeschiedenis
+  # =========================================================================
   - pref: AnonymousPatron
     value: "0"
 
   - pref: StoreLastBorrower
     value: "0"
+
+  # =========================================================================
+  # Logs
+  # =========================================================================
+  - pref: CataloguingLog
+    value: "1"
+
+  - pref: AuthSuccessLog
+    value: "1"
+
+  - pref: AuthFailureLog
+    value: "1"
+
+  - pref: BorrowersLog
+    value: "1"
+
+  - pref: IssueLog
+    value: "1"
+
+  - pref: ReturnLog
+    value: "1"
+
+  # =========================================================================
+  # Zoeken
+  # =========================================================================
+  - pref: OPACnumSearchResults
+    value: "20"
+
+  - pref: numSearchResults
+    value: "20"

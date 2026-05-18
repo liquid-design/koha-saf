@@ -5,6 +5,7 @@
 # Inrichten van bibliotheeklogica los van techniek.
 #
 # Scope:
+# - language packs (NL/FR/EN)
 # - libraries
 # - patron categorieën
 # - item types
@@ -20,6 +21,10 @@
   become: true
 
   roles:
+    # Installeert Koha interface-vertalingen (NL/FR/EN).
+    # MOET vóór koha_business_sysprefs draaien omdat OPACLanguages
+    # anders waarden activeert die niet als translation files bestaan.
+    - koha_languages
 
     # Definieert bibliotheken en branches
     - koha_business_libraries
