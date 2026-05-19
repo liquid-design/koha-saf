@@ -12,16 +12,20 @@ WorkingDirectory={{ flask_app_dir }}
 # Environment
 Environment="KOHA_UPLOAD_DIR={{ flask_staging_dir }}"
 Environment="PATH={{ flask_venv_dir }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-EnvironmentFile=-{{ flask_app_dir }}/.flask_env
 
-# Lees secret key uit bestand (LoadCredential houdt het uit /proc/<pid>/environ)
-ExecStartPre=/bin/sh -c 'echo "FLASK_SECRET_KEY=$(cat {{ flask_app_dir }}/.flask_secret)" > {{ flask_app_dir }}/.flask_env && chmod 600 {{ flask_app_dir }}/.flask_env'
+# Secret key via LoadCredential: systemd mount het file als read-only in
+# /run/credentials/flask-isbn.service/flask_secret. Voordeel boven Environment=:
+# de waarde komt NIET in /proc/<pid>/environ terecht, dus een leesbare procfs
+# (bv. via een ander proces in dezelfde namespace) lekt de key niet.
+LoadCredential=flask_secret:{{ flask_app_dir }}/.flask_secret
+Environment="FLASK_SECRET_KEY_FILE=%d/flask_secret"
 
 ExecStart={{ flask_venv_dir }}/bin/gunicorn \
     --workers {{ flask_workers }} \
     --bind {{ flask_bind }} \
     --access-logfile - \
     --error-logfile - \
+    --forwarded-allow-ips=127.0.0.1 \
     run:app
 
 Restart=on-failure
@@ -40,6 +44,14 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
+# Extra hardening
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+# Beperk netwerkfamilies tot wat we echt nodig hebben (HTTP outbound + bind)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 # Logging naar journald
 StandardOutput=journal

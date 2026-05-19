@@ -1,5 +1,8 @@
 {# Basis-template, alle andere templates erven hiervan.
-   Houdt boilerplate (head, flashes) op één plek. #}
+   Houdt boilerplate (head, flashes) op één plek.
+
+   CSRF: Flask-WTF zet csrf_token() in jinja globals. Elk POST-formulier
+   moet {{ csrf_token() }} bevatten als hidden input. #}
 <!doctype html>
 <html lang="nl">
 <head>

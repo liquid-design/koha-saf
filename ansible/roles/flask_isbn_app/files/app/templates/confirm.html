@@ -19,6 +19,7 @@
   {% endif %}
 
   <form method="post" action="{{ url_for('save') }}" class="confirm-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="isbn" value="{{ isbn }}">
     <input type="hidden" name="source" value="{{ book.source }}">
 
@@ -28,35 +29,41 @@
       <label for="title">Titel:</label>
       <input type="text" id="title" name="title"
              value="{{ book.title or '' }}"
+             maxlength="500"
              required>
 
       <label for="subtitle">Ondertitel:</label>
       <input type="text" id="subtitle" name="subtitle"
+             maxlength="500"
              value="{{ book.subtitle or '' }}">
 
       <label for="authors">
         Auteur(s) <small>(scheiden met puntkomma)</small>:
       </label>
       <input type="text" id="authors" name="authors"
+             maxlength="1000"
              value="{{ book.authors|join('; ') }}">
 
       <label for="publishers">
         Uitgever(s) <small>(scheiden met puntkomma)</small>:
       </label>
       <input type="text" id="publishers" name="publishers"
+             maxlength="500"
              value="{{ book.publishers|join('; ') }}">
 
       <div class="row">
         <div class="col">
           <label for="publish_place">Uitgaveplaats:</label>
           <input type="text" id="publish_place" name="publish_place"
+                 maxlength="200"
                  value="{{ book.publish_place or '' }}">
         </div>
         <div class="col">
           <label for="publish_date">Jaar:</label>
           <input type="text" id="publish_date" name="publish_date"
                  value="{{ book.publish_date or '' }}"
-                 inputmode="numeric" pattern="[0-9]{4}">
+                 inputmode="numeric" pattern="[0-9]{4}"
+                 maxlength="4">
         </div>
         <div class="col">
           <label for="language">Taal <small>(ISO 639-3)</small>:</label>
@@ -74,15 +81,18 @@
       </div>
 
       <label for="description">Samenvatting / flaptekst:</label>
-      <textarea id="description" name="description" rows="4">{{ book.description or '' }}</textarea>
+      <textarea id="description" name="description"
+                rows="4" maxlength="10000">{{ book.description or '' }}</textarea>
     </fieldset>
 
     <fieldset>
       <legend>Koha-specifiek</legend>
 
-      <label for="barcode">Barcode <small>(verplicht)</small>:</label>
+      <label for="barcode">Barcode <small>(verplicht, alleen A-Z 0-9 _ -)</small>:</label>
       <input type="text" id="barcode" name="barcode" required
              autocomplete="off"
+             pattern="[A-Za-z0-9_\-]{1,32}"
+             maxlength="32"
              placeholder="bv. SAF000001">
 
       <label for="category">SAF-categorie:</label>

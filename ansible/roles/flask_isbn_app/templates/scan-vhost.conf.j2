@@ -1,3 +1,11 @@
+{# Apache vhost voor scan.<domain>. Doet:
+   - HTTP -> HTTPS redirect
+   - Basic Auth (Apache-niveau, voor alle paths)
+   - Reverse proxy naar gunicorn op 127.0.0.1:5000
+   - Stuurt X-Forwarded-* mee zodat Flask-Limiter de echte client-IP
+     ziet (niet 127.0.0.1, want dan zou rate limit globaal werken).
+   - Strakke security headers (HSTS, CSP, Permissions-Policy, etc.)
+#}
 <VirtualHost *:80>
     ServerName {{ scan_domain }}
     RewriteEngine On
@@ -11,17 +19,48 @@
     SSLCertificateFile /etc/letsencrypt/live/{{ scan_domain }}/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/{{ scan_domain }}/privkey.pem
 
-    # Reverse proxy naar gunicorn
+    # ---- Basic Auth ----
+    # Geldt voor de hele app. htpasswd-file wordt door Ansible aangemaakt
+    # uit vault. Audit-logs in scan-access.log tonen welke user inlogde.
+    <Location />
+        AuthType Basic
+        AuthName "SAF bibliotheek - login vereist"
+        AuthUserFile {{ flask_htpasswd_path }}
+        Require valid-user
+    </Location>
+
+    # ---- Reverse proxy ----
     ProxyPreserveHost On
     ProxyRequests Off
     ProxyPass / http://{{ flask_bind }}/
     ProxyPassReverse / http://{{ flask_bind }}/
 
-    # Security headers
+    # X-Forwarded-* zodat de Flask-app (via ProxyFix) de echte client-IP
+    # ziet. Zonder dit krijgt Flask-Limiter altijd 127.0.0.1 en is
+    # rate-limiting per IP zinloos.
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Port "443"
+
+    # ---- Security headers ----
+    # HSTS: 2 jaar, subdomains. preload bewust uitgelaten — eerst zekerheid
+    # dat alle subdomains TLS hebben.
     Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+    # CSP: app gebruikt alleen eigen CSS/JS, geen inline scripts of
+    # externe resources. data: voor evt. base64-icons in CSS.
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+    # Permissions-Policy: app heeft geen browser-API's nodig. Defense in depth.
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+
+    # Klassiekers
     Header always set X-Frame-Options SAMEORIGIN
     Header always set X-Content-Type-Options nosniff
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Cross-origin isolation (modern, vervangt deels CSP frame-ancestors)
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Cross-Origin-Resource-Policy "same-origin"
 
     ErrorLog ${APACHE_LOG_DIR}/scan-error.log
     CustomLog ${APACHE_LOG_DIR}/scan-access.log combined

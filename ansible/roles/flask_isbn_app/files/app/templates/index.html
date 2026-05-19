@@ -3,6 +3,8 @@
 
 {% block content %}
   <form method="post" action="{{ url_for('lookup') }}" class="isbn-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <label for="isbn">ISBN scannen of intypen:</label>
     <input type="text" id="isbn" name="isbn" required
            autocomplete="off" autofocus

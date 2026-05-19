@@ -3,12 +3,13 @@
 # ----------------------------------------------------------------------------
 # Installeert de Flask ISBN-scan app als systemd service achter Apache.
 # Architectuur:
-#   - Flask draait als 'flask-isbn' user
+#   - Flask draait als 'flask-isbn' user, gunicorn op 127.0.0.1:5000
 #   - Flask schrijft XML naar /var/lib/koha-staging/ (niet rechtstreeks naar
 #     Koha's upload-dir)
 #   - Beide users (flask-isbn + bib-koha) zitten in group 'koha-import'
 #   - SetGID bit (mode 2775) zorgt dat nieuwe bestanden de juiste group erven
 #   - Apache reverse proxy op scan.<domain> -> 127.0.0.1:5000
+#   - Basic Auth op Apache-niveau (htpasswd uit vault)
 #
 # Gebruik: ansible-playbook -i inventory/terraform.py -l test playbooks/10-flask-isbn.yml
 # ============================================================================
@@ -22,6 +23,12 @@
       - python3
       - python3-venv
       - python3-pip
+      # passlib nodig voor Ansible htpasswd module (we genereren niet zelf,
+      # maar het is goed om de dep expliciet te installeren)
+      - python3-passlib
+      # apache2-utils geeft ons het 'htpasswd' commando — handig voor
+      # operationele taken (nieuwe user toevoegen aan htpasswd file)
+      - apache2-utils
     state: present
 
 # ----------------------------------------------------------------------------
@@ -81,10 +88,6 @@
 # ----------------------------------------------------------------------------
 # 4. App-bestanden deployen
 # ----------------------------------------------------------------------------
-# Met de gemodulariseerde codebase (sources/, templates/, static/) is een
-# recursieve copy schoner dan per-file. We syncen heel app/ in één keer.
-# Voordeel: nieuwe sources/<naam>.py wordt automatisch meegenomen, geen
-# task-edit nodig.
 - name: Deploy run.py
   copy:
     src: run.py
@@ -112,7 +115,6 @@
     directory_mode: '0755'
   notify: restart flask isbn
 
-# Zorg dat sources/ map executable is voor traversal
 - name: Zet directory permissies in app/
   file:
     path: "{{ item }}"
@@ -128,12 +130,18 @@
     - "{{ flask_app_dir }}/app/static/css"
     - "{{ flask_app_dir }}/app/static/js"
 
-# Verwijder oude isbn_lookup.py uit vorige deploys (was top-level)
 - name: Verwijder verouderde isbn_lookup.py uit vorige deploy
   file:
     path: "{{ flask_app_dir }}/isbn_lookup.py"
     state: absent
   notify: restart flask isbn
+
+# Oude .flask_env (van vorige systemd unit) opruimen — niet meer nodig
+# omdat we LoadCredential gebruiken ipv EnvironmentFile.
+- name: Verwijder verouderde .flask_env uit vorige deploy
+  file:
+    path: "{{ flask_app_dir }}/.flask_env"
+    state: absent
 
 # ----------------------------------------------------------------------------
 # 5. Python virtual environment
@@ -169,14 +177,17 @@
   notify: restart flask isbn
 
 # ----------------------------------------------------------------------------
-# 6. Systemd service
+# 6. Flask secret key + systemd service
 # ----------------------------------------------------------------------------
+# Secret wordt eenmalig gegenereerd. Bij rotatie: verwijder .flask_secret
+# en deploy opnieuw — service-restart maakt een nieuwe en breekt actieve
+# sessies, wat acceptabel is voor deze interne tool.
 - name: Genereer Flask secret key (eenmalig)
-  shell: "openssl rand -hex 32 > {{ flask_app_dir }}/.flask_secret"
+  shell: "umask 077 && openssl rand -hex 32 > {{ flask_app_dir }}/.flask_secret"
   args:
     creates: "{{ flask_app_dir }}/.flask_secret"
 
-- name: Beveilig flask secret
+- name: Beveilig flask secret file
   file:
     path: "{{ flask_app_dir }}/.flask_secret"
     owner: "{{ flask_user }}"
@@ -200,9 +211,9 @@
     daemon_reload: true
 
 # ----------------------------------------------------------------------------
-# 7. Apache reverse proxy
+# 7. Apache reverse proxy + Basic Auth
 # ----------------------------------------------------------------------------
-- name: Enable Apache proxy modules
+- name: Enable Apache proxy en auth modules
   command: "a2enmod {{ item }}"
   args:
     creates: "/etc/apache2/mods-enabled/{{ item }}.load"
@@ -212,6 +223,26 @@
     - rewrite
     - headers
     - ssl
+    - auth_basic         # Basic Auth provider
+    - authn_file         # leest passwords uit file
+    - authz_user         # 'Require valid-user'
+  notify: reload apache
+
+# ---- htpasswd file uit vault ----
+# We schrijven het bcrypt-gehashte wachtwoord rechtstreeks. Hash wordt
+# OFFLINE gegenereerd en in vault.yml gezet (zie doc 24):
+#   htpasswd -nbB saf 'echt-wachtwoord'
+# Output is "saf:$2y$05$...". Die hele regel komt in vault_flask_htpasswd_hash.
+#
+# Voordeel boven 'community.general.htpasswd': geen python-passlib nodig op
+# control node, geen platte tekst in Ansible-vars.
+- name: Schrijf htpasswd file voor Basic Auth
+  copy:
+    content: "{{ flask_htpasswd_hash }}\n"
+    dest: "{{ flask_htpasswd_path }}"
+    owner: root
+    group: www-data
+    mode: '0640'
   notify: reload apache
 
 - name: Verkrijg TLS certificaat voor scan-domein
@@ -238,7 +269,6 @@
     creates: "/etc/apache2/sites-enabled/{{ scan_domain }}.conf"
   notify: reload apache
 
-# Certbot maakt soms automatisch een -le-ssl variant aan.
 - name: Disable automatische certbot vhost
   command: "a2dissite {{ scan_domain }}-le-ssl.conf"
   args:

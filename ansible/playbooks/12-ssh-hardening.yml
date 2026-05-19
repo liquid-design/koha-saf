@@ -1,0 +1,21 @@
+---
+# ============================================================================
+# 12-ssh-hardening.yml
+# ----------------------------------------------------------------------------
+# Zet PasswordAuthentication en root-login uit via /etc/ssh/sshd_config.d/.
+#
+# Gebruik:
+#   ansible-playbook -i inventory/terraform.py -l test playbooks/12-ssh-hardening.yml
+#
+# PRE-FLIGHT CHECK:
+# Voordat je dit draait: zorg dat je SSH-key werkt voor de ansible-user
+# en root (via key, niet password). Test:
+#   ssh -i ~/.ssh/ansible_nopass ansible@<host>
+# Als dat werkt, is deze playbook safe. Anders sluit je jezelf buiten.
+# ============================================================================
+
+- hosts: all
+  become: true
+  gather_facts: false
+  roles:
+    - ssh_hardening
