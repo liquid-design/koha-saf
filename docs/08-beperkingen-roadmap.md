@@ -1,32 +1,43 @@
-# 8. Bekende Beperkingen en Roadmap
+# 8. Bekende beperkingen en roadmap
 
-## 8.1 Huidige beperkingen (POC)
+## 8.1 Huidige beperkingen
 
-| Beperking | Impact | Oplossing |
-|-----------|--------|-----------|
-| Wachtwoorden hardcoded | Security risico bij gedeelde repo | Ansible Vault integratie (Vault is al uitgerold) |
-| Geen email/SMTP | Geen herinneringen of bevestigingen | Postfix + Koha messaging config |
-| Geen cron jobs | Geen automatische boetes of opruiming | Koha cron configuratie in apart playbook |
-| Geen firewall | Alle poorten open | UFW of DigitalOcean Cloud Firewall |
-| Certbot `bib-le-ssl.conf` | Handmatige `a2dissite` na eerste deploy prod | Toevoegen aan `koha_apache-tls-finalize` loop |
-| Geen database backup | Dataverlies bij servercrash | Automated MariaDB dumps + DigitalOcean Spaces |
+Beperkingen die op dit moment nog gelden op de productie- en testomgevingen.
+
+| Beperking | Impact | Voorgestelde oplossing |
+|-----------|--------|------------------------|
+| Geen email/SMTP | Geen herinneringen of bevestigingen, geen `overdue_notices.pl` mail-output | Postfix als sendmail-relay + nieuwe role `koha_business_smtp` (verwijzing naar deze ontbrekende role staat al in `roles/koha_business_sysprefs/defaults/main.yml` regel 79) |
+| Geen cron jobs | Geen automatische boetes of database-cleanup | Aparte role `koha_cron` die `overdue_notices.pl`, `fines.pl`, `cleanup_database.pl` als systemd timers deployt |
+| Geen UFW / firewall | Alle poorten open op de droplet zelf | DigitalOcean Cloud Firewall via Terraform (poorten 22, 80, 443) — of UFW via een nieuwe role |
+| Certbot `bib-le-ssl.conf` op prod | Handmatige `a2dissite` na eerste deploy prod (zie doc 06 §6.4) | Toevoegen aan de disable-loop in `roles/koha_apache-tls-finalize/tasks/main.yml` |
+| Default `biblio_framework` ontbreekt | Catalogiseren via webformulieren werkt niet zonder lege "Default" framework | Toevoegen aan `roles/koha_postinstall_db` of nieuwe role `koha_business_frameworks`. Zie `technical debt.md` |
+
+## 8.2 Recent voltooid
+
+Niet meer in scope want al uitgerold:
+
+- **Ansible Vault** — geïntegreerd, `~/.ansible-vault-pass-koha-saf` wordt door `ansible.cfg` regel 9 opgepikt. Actieve vault-vars: `vault_flask_htpasswd_user`, `vault_flask_htpasswd_hash`. Zie `ansible-vault-setup.md` en doc 05 §5.4.
+- **Database backup architectuur** — 3-2-1 strategie ontworpen: dagelijkse `koha-dump`/`koha-restore` naar Backblaze B2 (Object Lock, Compliance Mode, 30-dagen retentie), on-premise NAS pull, DigitalOcean weekly snapshots als derde laag. Zie docs 20–23.
+- **Zebra silent-failure fix** — `koha_import_runner` start nu Zebra in bootstrap en faalt loud als hij niet draait. Zie `roles/koha_import_runner/tasks/main.yml` regel 50–76.
+- **ISBN-scan-app security hardening** — Basic Auth + CSRF + input-validatie + rate limiting. Zie doc 24.
 
 ---
 
-## 8.2 Roadmap
+## 8.3 Roadmap
 
 ### Korte termijn
 
-- [ ] Ansible Vault voor wachtwoorden en API tokens
-- [ ] UFW firewall configuratie (poort 22, 80, 443 only)
+- [ ] UFW of DigitalOcean Cloud Firewall (poorten 22, 80, 443)
 - [ ] `bib-le-ssl.conf` fix in `koha_apache-tls-finalize`
+- [ ] `biblio_framework` Default-seed in `koha_postinstall_db` of nieuwe role
+- [ ] Implementeren en testen van de `koha_backup` Ansible-role (B2 + retention)
 
 ### Middellange termijn
 
-- [ ] Email/SMTP configuratie (Postfix + Koha messaging)
-- [ ] Automatische Koha cron jobs (`overdue_notices.pl`, `fines.pl`, `cleanup_database.pl`)
-- [ ] MariaDB backup playbook naar DigitalOcean Spaces
-- [ ] Koha upgrade playbook (minor versies)
+- [ ] Email/SMTP role (`koha_business_smtp` + Postfix)
+- [ ] Koha cron-role (`overdue_notices.pl`, `fines.pl`, `cleanup_database.pl` als systemd timers)
+- [ ] Koha upgrade-playbook voor minor versies (bv. 25.05 → 25.05.x)
+- [ ] Jaarlijkse restore-drill geautomatiseerd (per doc 23)
 
 ### Lange termijn
 
@@ -37,15 +48,10 @@
 
 ---
 
-## 8.3 Ansible Vault integratie (volgende stap)
+## 8.4 Open architectuur-keuzes
 
-De Vault server is al uitgerold als onderdeel van de homelab stack. Integratie:
+Punten die nog niet beslist zijn, met de afweging die nog moet gebeuren.
 
-1. Maak een Vault-gebaseerd Ansible lookup voor wachtwoorden
-2. Vervang hardcoded `password_hash` waarden in `koha_business_staff/defaults/main.yml`
-3. Vervang de DigitalOcean API token in `secrets/secrets.tfvars`
+**SMTP via Postfix vs externe service.** Een Postfix-relay op de droplet vergt minimaal extra config maar betekent dat het IP-adres van de droplet in SPF moet, en deliverability is broos op DigitalOcean-IPs. Alternatief: externe SMTP (bv. mail.socialisme.be) via authenticated smarthost. De vault-doc anticipeert al op een `koha_business_smtp` role; concrete keuze nog te maken.
 
-```yaml
-# Voorbeeld toekomstige integratie
-password_hash: "{{ lookup('hashi_vault', 'secret=koha/staff/bibliothecaris:password_hash') }}"
-```
+**Firewall op droplet-niveau vs DO Cloud Firewall.** UFW geeft fine-grained per-host control en zit volledig in Ansible. DO Cloud Firewall is provider-managed, zit in Terraform en geldt op netwerk-niveau (verkeer raakt de droplet niet eens). Voor deze use-case is DO Cloud Firewall waarschijnlijk de juistere keuze — minder code in Ansible, en consistent met de "Terraform doet infrastructuur, Ansible doet config" scheiding uit doc 02 §2.1.
