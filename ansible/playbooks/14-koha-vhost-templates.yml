@@ -1,0 +1,22 @@
+---
+# ============================================================================
+# 14-koha-vhost-templates.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Alleen de definitieve Koha vhost-templates (koha_apache-tls-finalize)
+# updaten zonder de hele TLS-pijplijn (koha_apache-tls + certbot) te draaien.
+#
+# Dit is veilig om op een werkende productie te draaien — er is geen
+# tijdelijk HTTP-stub stadium zoals in 09-koha-tls.yml.
+#
+# Gebruik 09-koha-tls.yml ALLEEN voor first-time deploys waar nog geen
+# certificaten bestaan.
+# ============================================================================
+
+- name: Update Koha vhost templates only
+  hosts: all
+  become: true
+  gather_facts: false
+
+  roles:
+    - koha_apache-tls-finalize

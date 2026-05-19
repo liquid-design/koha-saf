@@ -1,0 +1,15 @@
+# ============================================================================
+# apache_hardening role - defaults
+# ----------------------------------------------------------------------------
+# Override in group_vars/{test,prod}.yml als je iets specifiek anders wilt.
+# ============================================================================
+
+# TLS profile: 'intermediate' of 'modern'
+#   - intermediate: TLS 1.2 + 1.3, breed compatible (Mozilla intermediate)
+#   - modern: TLS 1.3 only, geen oude clients
+# Voor een publieke OPAC raden we 'intermediate' aan.
+apache_hardening_tls_profile: intermediate
+
+# Paden van de a2enconf snippets. Niet aanpassen tenzij je weet wat je doet.
+apache_hardening_ssl_conf_path: /etc/apache2/conf-available/ssl-hardening.conf
+apache_hardening_headers_conf_path: /etc/apache2/conf-available/security-headers.conf

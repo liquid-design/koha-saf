@@ -1,0 +1,24 @@
+# ============================================================================
+# Handlers: apache config validation + reload
+# ----------------------------------------------------------------------------
+# Ansible handlers kunnen geen `block:` op top-level hebben — daarom doen we
+# twee aparte handlers die beide naar dezelfde notification luisteren via
+# `listen:`. Ze draaien in de volgorde waarin ze hier gedefinieerd staan.
+#
+# Effect: eerst configtest, dan pas reload. Als de configtest faalt, draait
+# de reload niet (Ansible stopt de handler-chain bij een failure). Apache
+# blijft dan draaien op de oude (werkende) config.
+# ============================================================================
+
+- name: Apache configtest
+  ansible.builtin.command: apache2ctl configtest
+  register: apache_configtest
+  changed_when: false
+  failed_when: apache_configtest.rc != 0
+  listen: validate and reload apache
+
+- name: Reload apache
+  ansible.builtin.service:
+    name: apache2
+    state: reloaded
+  listen: validate and reload apache

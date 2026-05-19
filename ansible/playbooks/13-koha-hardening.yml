@@ -1,0 +1,40 @@
+---
+# ============================================================================
+# 13-koha-hardening.yml
+# ----------------------------------------------------------------------------
+# Doel:
+# Globale Apache TLS-hardening en gedeelde security headers activeren.
+# Idempotent — apart draaibaar zonder de hele Koha-stack te raken.
+#
+# Volgorde-aanname:
+#   - Apache is geïnstalleerd (koha_apache draait al voor je hier komt)
+#   - Certbot heeft certs geleverd (09-koha-tls.yml is voltooid)
+#
+# Gebruik:
+#   # Test eerst:
+#   ansible-playbook -i inventory/terraform.py -l test playbooks/13-koha-hardening.yml --check --diff
+#
+#   # Dan echt:
+#   ansible-playbook -i inventory/terraform.py -l test playbooks/13-koha-hardening.yml
+#
+#   # Daarna pas prod:
+#   ansible-playbook -i inventory/terraform.py -l prod playbooks/13-koha-hardening.yml --check --diff
+#   ansible-playbook -i inventory/terraform.py -l prod playbooks/13-koha-hardening.yml
+#
+# PRE-FLIGHT CHECK:
+# Apache moet draaien en de huidige vhost-config moet `configtest`-clean zijn.
+# Anders weigert de handler de reload — dat is by design.
+#
+# VERIFICATIE NA RUN:
+# 1. curl -sI https://bib-test.marxisme.be | grep -iE "strict|frame|content-type|referrer|permissions|cross-origin"
+# 2. nmap --script ssl-enum-ciphers -p 443 bib-test.marxisme.be
+# 3. https://www.ssllabs.com/ssltest/analyze.html?d=bib-test.marxisme.be
+# ============================================================================
+
+- name: Koha Apache hardening (TLS + security headers)
+  hosts: all
+  become: true
+  gather_facts: false
+
+  roles:
+    - apache_hardening
