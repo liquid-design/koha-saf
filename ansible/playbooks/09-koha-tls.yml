@@ -7,7 +7,13 @@
 # Volgorde is kritiek:
 #   1. koha_apache-tls          → HTTP-only vhosts deployen (ACME challenge)
 #   2. certbot                  → certs aanvragen via Let's Encrypt
-#   3. koha_apache-tls-finalize → definitieve TLS vhosts deployen
+#   3. apache_hardening         → globale TLS-config + security headers
+#   4. koha_apache-tls-finalize → definitieve TLS vhosts deployen
+#                                 (rekent erop dat de gedeelde snippets
+#                                  uit apache_hardening al bestaan)
+#
+# Voor een aparte update van alléén de hardening (zonder certbot opnieuw te
+# draaien), zie playbooks/13-koha-hardening.yml.
 # ============================================================================
 
 - name: Koha Apache tls configuratie
@@ -18,4 +24,5 @@
   roles:
     - koha_apache-tls
     - certbot
+    - apache_hardening
     - koha_apache-tls-finalize

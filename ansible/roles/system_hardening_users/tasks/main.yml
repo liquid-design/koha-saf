@@ -3,19 +3,34 @@
 # ----------------------------------------------------------------------------
 # Verantwoordelijkheid:
 # Basis hardening door expliciete systeemgebruikers aan te maken
-# voor beheer en applicatiegebruik.
+# voor beheer en applicatiegebruik, en login-policies te zetten.
 #
 # Doet wel:
-# - users en groepen aanmaken
-# - sudo rechten beheren
+# - password ageing defaults
+# - root password-login uitschakelen (lock account)
 #
 # Doet niet:
-# - security auditing
-# - firewall configuratie
+# - aanmaken ansible-user (gebeurt via cloud-init / Terraform user_data)
+# - SSH-configuratie (zie role: ssh_hardening)
+# - firewall (DigitalOcean cloud firewall via Terraform)
+#
+# RATIONALE voor root password lock:
+# Eerder stond hier een hardcoded `TemporaryPassword123!` met
+# `update_password: always`. Dat is om meerdere redenen onveilig:
+#   1. Het wachtwoord stond in plain-text in een Git-repo
+#   2. `update_password: always` overschreef handmatige rotaties
+#   3. De DigitalOcean web console gebruikt het Linux-wachtwoord
+#      (geen SSH), dus ssh_hardening biedt daar geen bescherming tegen
+#
+# Met `password_lock: true` is root password-login overal uitgeschakeld:
+# SSH (al door ssh_hardening), DO web console, en lokale tty.
+# Recovery routes:
+#   - SSH als 'ansible' user met sudo (primair)
+#   - DigitalOcean recovery boot mode (noodgeval)
 # ============================================================================
 
 - name: Ensure sane password ageing defaults
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/login.defs
     regexp: "^{{ item.key }}"
     line: "{{ item.key }} {{ item.value }}"
@@ -24,11 +39,11 @@
     - { key: PASS_MIN_DAYS, value: "0" }
     - { key: PASS_WARN_AGE, value: "7" }
 
-- name: Ensure root password is set
-  user:
+- name: Lock root password (disable password login on all channels)
+  ansible.builtin.user:
     name: root
-    password: "{{ 'TemporaryPassword123!' | password_hash('sha512') }}"
-    update_password: always
+    password_lock: true
 
 - name: Ensure root password does not expire
-  command: chage -M 99999 root
+  ansible.builtin.command: chage -M 99999 root
+  changed_when: false

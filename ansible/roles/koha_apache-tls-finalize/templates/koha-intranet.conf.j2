@@ -1,3 +1,17 @@
+{# ============================================================================
+   Koha staff (intranet) vhost — TLS + Koha-shared includes
+   Managed by Ansible (koha_apache-tls-finalize role)
+   ----------------------------------------------------------------------------
+   Security headers en TLS-config komen uit:
+     /etc/apache2/conf-enabled/ssl-hardening.conf
+     /etc/apache2/conf-enabled/security-headers.conf
+   Beide worden door de apache_hardening role geplaatst en geactiveerd.
+   Voeg hier dus GEEN HSTS/X-Frame/etc. meer toe — dat zou dubbel zijn.
+
+   NOTE: het TLS-cert dekt OPAC + intranet als SAN's, daarom verwijst
+   SSLCertificateFile naar het OPAC-domein-pad. Bij hernoeming van
+   koha_opac_domain moet dit pad ook mee.
+============================================================================ #}
 <VirtualHost *:80>
  ServerName {{ koha_intranet_domain }}
  RewriteEngine On
@@ -22,7 +36,4 @@
 
  ErrorLog /var/log/koha/{{ koha_instance }}/intranet-error.log
  CustomLog /var/log/koha/{{ koha_instance }}/intranet-access.log combined
-
- Header always set Strict-Transport-Security "max-age=63072000"
- Header always set X-Frame-Options SAMEORIGIN
 </VirtualHost>
