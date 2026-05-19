@@ -5,7 +5,14 @@
 # Beheert circulation- en uitleenregels binnen Koha.
 #
 # Doet wel:
-# - toepassen circulation matrix
+# - toepassen default circulation matrix (branchcode/categorycode/itemtype = NULL)
+#
+# Idempotentie:
+# - De combinatie (NULL, NULL, NULL, rule_name) heeft geen unique constraint in
+#   Koha's schema, dus INSERT ... ON DUPLICATE KEY UPDATE werkt hier niet.
+# - We doen daarom: DELETE alle default rules die wij beheren, dan INSERT.
+# - DELETE is gescoped op rule_name uit onze eigen lijst, zodat handmatig
+#   toegevoegde rules of rules met andere scope (per branch/category) blijven.
 # ============================================================================
 
 - name: Assert Koha runtime facts exist
@@ -17,18 +24,36 @@
       - ansible_local.koha.db_pass is defined
     fail_msg: "Koha runtime facts are missing; instance not initialized yet"
 
-
-- name: Ensure circulation rules
+- name: Verwijder bestaande default circulation rules die wij beheren
   community.mysql.mysql_query:
     login_db: "{{ ansible_local.koha.db_name }}"
     login_user: "{{ ansible_local.koha.db_user }}"
     login_password: "{{ ansible_local.koha.db_pass }}"
     query: |
-        INSERT IGNORE INTO circulation_rules (rule_name, rule_value)
-        VALUES
-        ('maxissueqty', '{{ circ_rule_max_checkouts }}'),
-        ('issuelength', '{{ circ_rule_loan_period }}'),
-        ('renewalsallowed', '{{ circ_rule_renewals_allowed }}'),
-        ('holds_per_day', '{{ circ_rule_holds_daily }}'),
-        ('holds_per_record', '{{ circ_rule_holds_per_record }}'),
-        ('onshelfholds', '{{ circ_rule_onshelf }}');
+      DELETE FROM circulation_rules
+      WHERE branchcode IS NULL
+        AND categorycode IS NULL
+        AND itemtype IS NULL
+        AND rule_name IN (
+          'maxissueqty',
+          'issuelength',
+          'renewalsallowed',
+          'holds_per_day',
+          'holds_per_record',
+          'onshelfholds'
+        );
+
+- name: Insert default circulation rules
+  community.mysql.mysql_query:
+    login_db: "{{ ansible_local.koha.db_name }}"
+    login_user: "{{ ansible_local.koha.db_user }}"
+    login_password: "{{ ansible_local.koha.db_pass }}"
+    query: |
+      INSERT INTO circulation_rules (branchcode, categorycode, itemtype, rule_name, rule_value)
+      VALUES
+        (NULL, NULL, NULL, 'maxissueqty',     '{{ circ_rule_max_checkouts }}'),
+        (NULL, NULL, NULL, 'issuelength',     '{{ circ_rule_loan_period }}'),
+        (NULL, NULL, NULL, 'renewalsallowed', '{{ circ_rule_renewals_allowed }}'),
+        (NULL, NULL, NULL, 'holds_per_day',   '{{ circ_rule_holds_daily }}'),
+        (NULL, NULL, NULL, 'holds_per_record','{{ circ_rule_holds_per_record }}'),
+        (NULL, NULL, NULL, 'onshelfholds',    '{{ circ_rule_onshelf }}');

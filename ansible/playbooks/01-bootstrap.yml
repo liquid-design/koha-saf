@@ -34,5 +34,5 @@
     # Configureert swap zodat Koha stabiel draait op kleinere droplets
     - system_swap
 
-	# Slaat runtime facts op voor gebruik in latere playbooks
+    # Slaat runtime facts op voor gebruik in latere playbooks
     - koha_persist_facts
