@@ -1,0 +1,240 @@
+# ============================================================================
+# diagnose-prod-vs-test.yml
+# ----------------------------------------------------------------------------
+# Read-only diagnostische playbook. Voert GEEN wijzigingen uit.
+# Verzamelt op elke host (prod + test) state-informatie en print aan het eind
+# een compacte vergelijkende samenvatting per host.
+#
+# Gebruik:
+#   ansible-playbook -i inventory/terraform.py playbooks/diagnose-prod-vs-test.yml
+#
+# Optioneel beperken:
+#   ansible-playbook -i inventory/terraform.py -l prod  playbooks/diagnose-prod-vs-test.yml
+#   ansible-playbook -i inventory/terraform.py -l test  playbooks/diagnose-prod-vs-test.yml
+#
+# Werking:
+# - Elk 'check'-blok gebruikt failed_when:false zodat een ontbrekende service
+#   of binary niet de hele run laat falen. We willen juist weten WAT ontbreekt.
+# - changed_when:false omdat alles puur lezen is.
+# - Aan het eind een 'debug' met een Jinja-template die een overzicht print.
+# ============================================================================
+
+- name: Diagnose Koha SAF — prod vs test
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+
+    # ------------------------------------------------------------------------
+    # 1. Koha instances aanwezig?
+    # ------------------------------------------------------------------------
+    - name: Lijst van Koha-instances (koha-list)
+      command: koha-list
+      register: koha_instances
+      changed_when: false
+      failed_when: false
+
+    - name: Lijst van enabled Koha-instances
+      command: koha-list --enabled
+      register: koha_instances_enabled
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 2. Apache vhosts
+    # ------------------------------------------------------------------------
+    - name: Apache vhosts enabled
+      command: ls /etc/apache2/sites-enabled/
+      register: apache_sites
+      changed_when: false
+      failed_when: false
+
+    - name: Apache draait?
+      command: systemctl is-active apache2
+      register: apache_active
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 3. Zebra search daemon — kritiek voor duplicate detection
+    # ------------------------------------------------------------------------
+    - name: Zebra service active?
+      command: "systemctl is-active koha-zebra@{{ koha_instance }}"
+      register: zebra_active
+      changed_when: false
+      failed_when: false
+
+    - name: Zebra service enabled?
+      command: "systemctl is-enabled koha-zebra@{{ koha_instance }}"
+      register: zebra_enabled
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 4. Flask ISBN scan-app
+    # ------------------------------------------------------------------------
+    - name: flask-isbn service status
+      command: systemctl is-active flask-isbn
+      register: flask_active
+      changed_when: false
+      failed_when: false
+
+    - name: flask-isbn service enabled?
+      command: systemctl is-enabled flask-isbn
+      register: flask_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: flask app dir aanwezig?
+      stat:
+        path: /opt/isbn_lookup
+      register: flask_app_dir_stat
+
+    - name: staging dir aanwezig?
+      stat:
+        path: /var/lib/koha-staging
+      register: staging_dir_stat
+
+    - name: scan vhost-bestand aanwezig?
+      stat:
+        path: "/etc/apache2/sites-available/{{ scan_domain }}.conf"
+      register: scan_vhost_stat
+
+    - name: scan vhost enabled?
+      stat:
+        path: "/etc/apache2/sites-enabled/{{ scan_domain }}.conf"
+      register: scan_vhost_enabled_stat
+
+    - name: Let's Encrypt cert voor scan-domein aanwezig?
+      stat:
+        path: "/etc/letsencrypt/live/{{ scan_domain }}"
+      register: scan_cert_stat
+
+    # ------------------------------------------------------------------------
+    # 5. Koha import runner (systemd path unit)
+    # ------------------------------------------------------------------------
+    - name: koha-import path unit aanwezig?
+      stat:
+        path: /etc/systemd/system/koha-import.path
+      register: import_path_stat
+
+    - name: koha-import service-unit aanwezig?
+      stat:
+        path: /etc/systemd/system/koha-import.service
+      register: import_service_stat
+
+    - name: koha-import.path active?
+      command: systemctl is-active koha-import.path
+      register: import_path_active
+      changed_when: false
+      failed_when: false
+
+    - name: koha-import.path enabled?
+      command: systemctl is-enabled koha-import.path
+      register: import_path_enabled
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 6. TLS-certs voor koha zelf
+    # ------------------------------------------------------------------------
+    - name: Cert voor OPAC-domein?
+      stat:
+        path: "/etc/letsencrypt/live/{{ koha_opac_domain }}"
+      register: opac_cert_stat
+
+    - name: Cert voor intranet-domein?
+      stat:
+        path: "/etc/letsencrypt/live/{{ koha_intranet_domain }}"
+      register: intra_cert_stat
+
+    # ------------------------------------------------------------------------
+    # 7. SSH hardening — staat PasswordAuthentication uit?
+    # ------------------------------------------------------------------------
+    - name: SSH hardening config aanwezig?
+      stat:
+        path: /etc/ssh/sshd_config.d/10-hardening.conf
+      register: ssh_hardening_stat
+
+    - name: PasswordAuthentication setting (effectief)
+      shell: |
+        set -o pipefail
+        sshd -T 2>/dev/null | grep -E '^(passwordauthentication|permitrootlogin) ' || true
+      args:
+        executable: /bin/bash
+      register: sshd_effective
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 8. Backup-role (koha_backup) — staan crontab/script er al?
+    # ------------------------------------------------------------------------
+    - name: koha-backup script aanwezig?
+      stat:
+        path: /usr/local/sbin/koha-backup-b2.sh
+      register: backup_script_stat
+
+    - name: rclone aanwezig?
+      command: which rclone
+      register: rclone_which
+      changed_when: false
+      failed_when: false
+
+    # ------------------------------------------------------------------------
+    # 9. Samenvattend overzicht per host
+    # ------------------------------------------------------------------------
+    - name: Compact diagnose-rapport
+      vars:
+        check: "{{ '✅' if ((item.cond) | bool) else '❌' }}"
+      debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          DIAGNOSE — {{ inventory_hostname }}  ({{ ansible_host }})
+          tags: {{ do_tags | default([]) | join(', ') }}
+          group: {{ 'prod' if 'test' not in (do_tags | default([])) else 'test' }}
+          koha_instance: {{ koha_instance }}
+          ════════════════════════════════════════════════════════════════
+
+          [Koha core]
+            koha-list (all)     : {{ koha_instances.stdout_lines | default(['<geen>']) | join(', ') }}
+            koha-list (enabled) : {{ koha_instances_enabled.stdout_lines | default(['<geen>']) | join(', ') }}
+            apache2 active      : {{ apache_active.stdout | default('?') }}
+            sites-enabled       : {{ apache_sites.stdout_lines | default([]) | join(', ') }}
+
+          [Zebra — duplicate detection]
+            koha-zebra@{{ koha_instance }} active  : {{ zebra_active.stdout | default('?') }}
+            koha-zebra@{{ koha_instance }} enabled : {{ zebra_enabled.stdout | default('?') }}
+
+          [Flask ISBN scan-app  →  {{ scan_domain }}]
+            flask-isbn active        : {{ flask_active.stdout | default('?') }}
+            flask-isbn enabled       : {{ flask_enabled.stdout | default('?') }}
+            /opt/isbn_lookup         : {{ 'aanwezig' if flask_app_dir_stat.stat.exists else 'ONTBREEKT' }}
+            /var/lib/koha-staging    : {{ 'aanwezig' if staging_dir_stat.stat.exists else 'ONTBREEKT' }}
+            vhost-bestand            : {{ 'aanwezig' if scan_vhost_stat.stat.exists else 'ONTBREEKT' }}
+            vhost enabled            : {{ 'JA' if scan_vhost_enabled_stat.stat.exists else 'NEE' }}
+            TLS cert {{ scan_domain }} : {{ 'aanwezig' if scan_cert_stat.stat.exists else 'ONTBREEKT' }}
+
+          [Koha import runner]
+            koha-import.path file    : {{ 'aanwezig' if import_path_stat.stat.exists else 'ONTBREEKT' }}
+            koha-import.service file : {{ 'aanwezig' if import_service_stat.stat.exists else 'ONTBREEKT' }}
+            koha-import.path active  : {{ import_path_active.stdout | default('?') }}
+            koha-import.path enabled : {{ import_path_enabled.stdout | default('?') }}
+
+          [TLS — Koha-domeinen]
+            cert {{ koha_opac_domain }}      : {{ 'aanwezig' if opac_cert_stat.stat.exists else 'ONTBREEKT' }}
+            cert {{ koha_intranet_domain }} : {{ 'aanwezig' if intra_cert_stat.stat.exists else 'ONTBREEKT' }}
+
+          [SSH hardening]
+            /etc/ssh/sshd_config.d/10-hardening.conf : {{ 'aanwezig' if ssh_hardening_stat.stat.exists else 'ONTBREEKT' }}
+            sshd -T (effectief):
+              {{ sshd_effective.stdout_lines | default(['?']) | join('\n          ') }}
+
+          [Backup (koha_backup role)]
+            /usr/local/sbin/koha-backup-b2.sh : {{ 'aanwezig' if backup_script_stat.stat.exists else 'ONTBREEKT (nog niet gedeployed)' }}
+            rclone                            : {{ rclone_which.stdout if rclone_which.rc == 0 else 'ONTBREEKT' }}
+          ════════════════════════════════════════════════════════════════
+      loop:
+        - { cond: true }
+      loop_control:
+        label: "{{ inventory_hostname }}"

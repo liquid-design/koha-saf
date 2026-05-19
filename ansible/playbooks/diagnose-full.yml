@@ -1,0 +1,493 @@
+# ============================================================================
+# diagnose-full.yml
+# ----------------------------------------------------------------------------
+# Volledig diagnostisch rapport: loopt alle 12 playbook-fases na en
+# rapporteert per host (prod + test) wat geïnstalleerd / geconfigureerd is.
+#
+# Read-only — geen wijzigingen, geen failed tasks (alles failed_when:false).
+#
+# Gebruik:
+#   ansible-playbook -i inventory/terraform.py playbooks/diagnose-full.yml
+#
+# Optioneel beperken:
+#   ansible-playbook -i inventory/terraform.py -l prod playbooks/diagnose-full.yml
+#
+# Toont per fase:
+#   01-bootstrap        → locale, users, swap, koha facts
+#   02-koha-install     → koha repo, koha-common pkg, mariadb
+#   03-koha-apache      → apache modules
+#   04-koha-instance    → koha instance + database
+#   05-koha-config      → koha-conf.xml
+#   06-koha-postinstall → DB-init, Python/YAML configs
+#   07-koha-business    → talen, libraries, categories, item types,
+#                         circulation, sysprefs, staff, admin
+#   08-koha-finalize    → sanity (Koha bereikbaar)
+#   09-koha-tls         → letsencrypt certs + tls vhosts
+#   10-flask-isbn       → flask app, scan vhost, htpasswd
+#   11-koha-import      → import runner + matcher + zebra
+#   12-ssh-hardening    → sshd config
+#
+# Plus extra: backup role (nog niet gedeployed)
+# ============================================================================
+
+- name: Volledige diagnose Koha SAF — alle playbook-fases
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    # Sommige paden hangen af van koha_instance — group_vars zetten die voor ons
+    koha_db: "koha_{{ koha_instance | replace('-','_') }}"
+
+  tasks:
+
+    # ========================================================================
+    # FASE 01 — Bootstrap (locale, users, apt, swap, koha_persist_facts)
+    # ========================================================================
+    - name: "[01] Locale (LANG)"
+      command: localectl status
+      register: f01_locale
+      changed_when: false
+      failed_when: false
+
+    - name: "[01] ansible user exists?"
+      getent:
+        database: passwd
+        key: ansible
+      register: f01_ansible_user
+      failed_when: false
+
+    - name: "[01] swap actief?"
+      command: swapon --show=NAME,SIZE --noheadings
+      register: f01_swap
+      changed_when: false
+      failed_when: false
+
+    - name: "[01] /etc/ansible/facts.d/koha.fact aanwezig?"
+      stat:
+        path: /etc/ansible/facts.d/koha.fact
+      register: f01_koha_fact
+
+    # ========================================================================
+    # FASE 02 — Koha install (repo, packages, mariadb)
+    # ========================================================================
+    - name: "[02] Koha apt repo geconfigureerd?"
+      stat:
+        path: /etc/apt/sources.list.d/koha.list
+      register: f02_koha_repo
+
+    - name: "[02] Koha keyring aanwezig?"
+      stat:
+        path: /etc/apt/keyrings/koha.asc
+      register: f02_koha_keyring
+
+    - name: "[02] koha-common geïnstalleerd?"
+      command: dpkg-query -W -f='${Version}' koha-common
+      register: f02_koha_common
+      changed_when: false
+      failed_when: false
+
+    - name: "[02] MariaDB actief?"
+      command: systemctl is-active mariadb
+      register: f02_mariadb_active
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 03 — Apache (modules + algemene status)
+    # ========================================================================
+    - name: "[03] Apache enabled modules"
+      shell: apache2ctl -M 2>/dev/null | grep -E '^ (ssl|rewrite|headers|proxy|proxy_http|auth_basic|authn_file|authz_user|deflate)_module' | awk '{print $1}' | sort
+      register: f03_apache_modules
+      changed_when: false
+      failed_when: false
+
+    - name: "[03] Apache config syntax OK?"
+      command: apache2ctl configtest
+      register: f03_apache_syntax
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 04 — Koha instance + database
+    # ========================================================================
+    - name: "[04] Koha instance dir aanwezig?"
+      stat:
+        path: "/etc/koha/sites/{{ koha_instance }}"
+      register: f04_instance_dir
+
+    - name: "[04] Koha-list (enabled)"
+      command: koha-list --enabled
+      register: f04_koha_list
+      changed_when: false
+      failed_when: false
+
+    - name: "[04] DB exists?"
+      shell: "mysql -BN -e \"SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='{{ koha_db }}';\""
+      register: f04_db_exists
+      changed_when: false
+      failed_when: false
+
+    - name: "[04] DB record-counts (biblio, items, borrowers)"
+      shell: |
+        koha-mysql {{ koha_instance }} -BN -e "
+          SELECT 'biblio' AS t, COUNT(*) FROM biblio
+          UNION ALL SELECT 'items', COUNT(*) FROM items
+          UNION ALL SELECT 'borrowers', COUNT(*) FROM borrowers
+          UNION ALL SELECT 'branches', COUNT(*) FROM branches
+          UNION ALL SELECT 'issues', COUNT(*) FROM issues;"
+      register: f04_db_counts
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 05 — Koha-conf.xml
+    # ========================================================================
+    - name: "[05] koha-conf.xml aanwezig?"
+      stat:
+        path: "/etc/koha/sites/{{ koha_instance }}/koha-conf.xml"
+      register: f05_koha_conf
+
+    # ========================================================================
+    # FASE 06 — Post-install (webinstaller-vervangers)
+    # ========================================================================
+    - name: "[06] Webinstaller voltooid? (marc_subfield_structure populated)"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT COUNT(*) FROM marc_subfield_structure;'"
+      register: f06_marc_struct
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 07 — Business config
+    # ========================================================================
+    - name: "[07] Geïnstalleerde Koha-talen"
+      command: koha-translate --list
+      register: f07_languages
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Libraries (branches)"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT CONCAT(branchcode,\" — \",branchname) FROM branches;'"
+      register: f07_branches
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Patron categories"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT CONCAT(categorycode,\" — \",description,\" (\",category_type,\")\") FROM categories ORDER BY categorycode;'"
+      register: f07_categories
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Item types"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT CONCAT(itemtype,\" — \",description) FROM itemtypes ORDER BY itemtype;'"
+      register: f07_itemtypes
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Circulation rules count"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT COUNT(*) FROM circulation_rules;'"
+      register: f07_circ_rules
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Sysprefs (key settings)"
+      shell: |
+        koha-mysql {{ koha_instance }} -BN -e "
+          SELECT CONCAT(variable,'=',value)
+          FROM systempreferences
+          WHERE variable IN (
+            'language','OPACLanguages','StaffInterfaceLanguages',
+            'OPACBaseURL','staffClientBaseURL',
+            'LibraryName','dateformat','TimeFormat',
+            'AddressFormat','FacetSortingLocale','marcflavour',
+            'OpacPublic','PatronSelfRegistration'
+          ) ORDER BY variable;"
+      register: f07_sysprefs
+      changed_when: false
+      failed_when: false
+
+    - name: "[07] Staff users"
+      shell: "koha-mysql {{ koha_instance }} -BN -e 'SELECT CONCAT(userid,\" (\",firstname,\" \",surname,\") flags=\",IFNULL(flags,\"NULL\")) FROM borrowers WHERE userid IS NOT NULL AND userid != \"\";'"
+      register: f07_staff
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 08 — Finalize (Koha web bereikbaar?)
+    # ========================================================================
+    - name: "[08] OPAC bereikbaar lokaal?"
+      uri:
+        url: "http://localhost"
+        headers:
+          Host: "{{ koha_opac_domain }}"
+        status_code: [200, 301, 302]
+        return_content: false
+      register: f08_opac_local
+      failed_when: false
+
+    - name: "[08] Intra bereikbaar lokaal?"
+      uri:
+        url: "http://localhost"
+        headers:
+          Host: "{{ koha_intranet_domain }}"
+        status_code: [200, 301, 302]
+        return_content: false
+      register: f08_intra_local
+      failed_when: false
+
+    # ========================================================================
+    # FASE 09 — TLS (Let's Encrypt + vhosts)
+    # ========================================================================
+    - name: "[09] Let's Encrypt cert directory listing"
+      shell: ls /etc/letsencrypt/live/ 2>/dev/null | grep -v README
+      register: f09_le_certs
+      changed_when: false
+      failed_when: false
+
+    - name: "[09] OPAC cert: SAN's"
+      shell: "openssl x509 -in /etc/letsencrypt/live/{{ koha_opac_domain }}/fullchain.pem -noout -text 2>/dev/null | awk '/Subject Alternative/{getline; print}' | tr -d ' '"
+      register: f09_opac_sans
+      changed_when: false
+      failed_when: false
+
+    - name: "[09] OPAC cert: vervaldatum"
+      shell: "openssl x509 -in /etc/letsencrypt/live/{{ koha_opac_domain }}/fullchain.pem -noout -enddate 2>/dev/null | cut -d= -f2"
+      register: f09_opac_expiry
+      changed_when: false
+      failed_when: false
+
+    - name: "[09] Apache vhosts enabled"
+      shell: ls /etc/apache2/sites-enabled/ 2>/dev/null
+      register: f09_vhosts
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 10 — Flask ISBN scan-app
+    # ========================================================================
+    - name: "[10] flask-isbn service status"
+      command: systemctl is-active flask-isbn
+      register: f10_flask_active
+      changed_when: false
+      failed_when: false
+
+    - name: "[10] flask-isbn enabled?"
+      command: systemctl is-enabled flask-isbn
+      register: f10_flask_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: "[10] gunicorn listener op 127.0.0.1:5000?"
+      shell: ss -tlnp 'sport = :5000' | awk 'NR>1 {print $4,$6}'
+      register: f10_port5000
+      changed_when: false
+      failed_when: false
+
+    - name: "[10] Staging directory permissies"
+      shell: |
+        stat -c '%A %U:%G %n' /var/lib/koha-staging /var/lib/koha-staging/failed 2>/dev/null
+      register: f10_staging_perms
+      changed_when: false
+      failed_when: false
+
+    - name: "[10] htpasswd file aanwezig?"
+      stat:
+        path: /etc/apache2/scan-htpasswd
+      register: f10_htpasswd
+
+    - name: "[10] scan-domein cert vervaldatum"
+      shell: "openssl x509 -in /etc/letsencrypt/live/{{ scan_domain }}/fullchain.pem -noout -enddate 2>/dev/null | cut -d= -f2"
+      register: f10_scan_cert
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 11 — Import runner + matcher + zebra
+    # ========================================================================
+    - name: "[11] koha-zebra status"
+      command: "koha-zebra --status {{ koha_instance }}"
+      register: f11_zebra_status
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] koha-common service active?"
+      command: systemctl is-active koha-common.service
+      register: f11_koha_common
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] ISBN matcher in DB"
+      shell: |
+        koha-mysql {{ koha_instance }} -BN -e "
+          SELECT CONCAT('id=',matcher_id,' code=',code,' threshold=',threshold)
+          FROM marc_matchers WHERE code='ISBN';"
+      register: f11_matcher
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] import-runner script aanwezig?"
+      stat:
+        path: /usr/local/sbin/koha-import-runner.sh
+      register: f11_runner_script
+
+    - name: "[11] systemd path-unit active?"
+      command: systemctl is-active koha-import-runner.path
+      register: f11_path_active
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] systemd path-unit enabled?"
+      command: systemctl is-enabled koha-import-runner.path
+      register: f11_path_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] Files in staging op dit moment"
+      shell: "ls /var/lib/koha-staging/*.xml 2>/dev/null | wc -l; ls /var/lib/koha-staging/failed/ 2>/dev/null | wc -l"
+      register: f11_staging_files
+      changed_when: false
+      failed_when: false
+
+    - name: "[11] Laatste 5 regels import-log"
+      shell: tail -5 /var/log/koha-import/import.log 2>/dev/null || echo "<log nog leeg of niet aanwezig>"
+      register: f11_import_log
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # FASE 12 — SSH hardening
+    # ========================================================================
+    - name: "[12] sshd config-drop aanwezig?"
+      stat:
+        path: /etc/ssh/sshd_config.d/10-hardening.conf
+      register: f12_sshd_dropin
+
+    - name: "[12] sshd effectieve instellingen"
+      shell: |
+        set -o pipefail
+        sshd -T 2>/dev/null | grep -E '^(passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractiveauthentication) ' || true
+      args:
+        executable: /bin/bash
+      register: f12_sshd_effective
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # EXTRA — Backup role (nog niet gedeployed volgens roadmap)
+    # ========================================================================
+    - name: "[backup] script aanwezig?"
+      stat:
+        path: /usr/local/sbin/koha-backup-b2.sh
+      register: fb_backup_script
+
+    - name: "[backup] rclone geïnstalleerd?"
+      command: which rclone
+      register: fb_rclone
+      changed_when: false
+      failed_when: false
+
+    - name: "[backup] cron-entry voor koha-backup?"
+      shell: grep -rsh 'koha-backup\|backup-b2' /etc/cron.* /var/spool/cron/ 2>/dev/null | head -3 || true
+      register: fb_cron
+      changed_when: false
+      failed_when: false
+
+    # ========================================================================
+    # SAMENVATTEND RAPPORT
+    # ========================================================================
+    - name: Volledig diagnose-rapport
+      debug:
+        msg: |
+          ════════════════════════════════════════════════════════════════
+          KOHA SAF — VOLLEDIGE DIAGNOSE
+          Host             : {{ inventory_hostname }} ({{ ansible_host }})
+          Tags             : {{ do_tags | default([]) | join(', ') }}
+          Koha instance    : {{ koha_instance }}
+          OPAC domein      : {{ koha_opac_domain }}
+          Intranet domein  : {{ koha_intranet_domain }}
+          Scan domein      : {{ scan_domain }}
+          Distro           : {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel           : {{ ansible_kernel }}
+          Uptime           : {{ ((ansible_facts.uptime_seconds | default(0)) / 86400) | round(1) }} dagen
+          ════════════════════════════════════════════════════════════════
+
+          [01-bootstrap]  OS basis
+            locale (LANG)            : {{ (f01_locale.stdout_lines | default([]) | select('match','^ *System Locale') | list | first | default('?')) | regex_replace('^ +','') }}
+            ansible user             : {{ 'aanwezig (uid=' + (f01_ansible_user.ansible_facts.getent_passwd.ansible[1] | default('?')) + ')' if (f01_ansible_user.ansible_facts is defined and 'getent_passwd' in f01_ansible_user.ansible_facts and 'ansible' in f01_ansible_user.ansible_facts.getent_passwd) else 'ONTBREEKT' }}
+            swap                     : {{ f01_swap.stdout | default('') | trim if f01_swap.stdout | default('') | trim else 'GEEN SWAP' }}
+            koha.fact persisted      : {{ 'JA' if f01_koha_fact.stat.exists else 'NEE' }}
+
+          [02-koha-install]  pakketten + database
+            apt repo file            : {{ 'JA' if f02_koha_repo.stat.exists else 'NEE' }}
+            apt keyring              : {{ 'JA' if f02_koha_keyring.stat.exists else 'NEE' }}
+            koha-common pkg          : {{ f02_koha_common.stdout if f02_koha_common.rc == 0 else 'NIET GEÏNSTALLEERD' }}
+            mariadb service          : {{ f02_mariadb_active.stdout | default('?') }}
+
+          [03-koha-apache]  webserver
+            modules enabled          : {{ f03_apache_modules.stdout_lines | default([]) | join(', ') }}
+            config syntax            : {{ 'OK' if 'Syntax OK' in (f03_apache_syntax.stderr | default('') + f03_apache_syntax.stdout | default('')) else 'FOUT' }}
+
+          [04-koha-instance]  Koha-instance + DB
+            instance config dir      : {{ 'JA' if f04_instance_dir.stat.exists else 'NEE' }}
+            koha-list (enabled)      : {{ f04_koha_list.stdout_lines | default([]) | join(', ') }}
+            database '{{ koha_db }}' : {{ 'JA' if f04_db_exists.stdout | default('') | trim else 'NEE' }}
+            record-counts:
+              {{ f04_db_counts.stdout_lines | default(['<geen toegang>']) | join('\n          ') }}
+
+          [05-koha-config]  koha-conf.xml
+            koha-conf.xml            : {{ 'aanwezig (' + (f05_koha_conf.stat.size | default(0) | string) + ' bytes)' if f05_koha_conf.stat.exists else 'ONTBREEKT' }}
+
+          [06-koha-postinstall]  webinstaller-vervangers
+            MARC subfield structure  : {{ (f06_marc_struct.stdout | default('0') | trim) + ' rijen' }}
+              {%- if (f06_marc_struct.stdout | default('0') | trim | int) < 100 %} ⚠ Webinstaller waarschijnlijk niet voltooid{% endif %}
+
+          [07-koha-business]  bibliotheek-config
+            Talen geïnstalleerd      : {{ f07_languages.stdout_lines | default([]) | join(', ') }}
+            Branches                 : {{ f07_branches.stdout_lines | default([]) | join(' | ') }}
+            Patron categories        :
+              {{ f07_categories.stdout_lines | default([]) | join('\n          ') }}
+            Item types               : {{ f07_itemtypes.stdout_lines | default([]) | join(' | ') }}
+            Circulation rules        : {{ f07_circ_rules.stdout | default('?') | trim }}
+            Sysprefs (kerninstel.):
+              {{ f07_sysprefs.stdout_lines | default([]) | join('\n          ') }}
+            Staff users              :
+              {{ f07_staff.stdout_lines | default([]) | join('\n          ') }}
+
+          [08-koha-finalize]  bereikbaarheid
+            OPAC ({{ koha_opac_domain }})        : HTTP {{ f08_opac_local.status | default('?') }}
+            Intra ({{ koha_intranet_domain }}) : HTTP {{ f08_intra_local.status | default('?') }}
+
+          [09-koha-tls]  Let's Encrypt
+            cert-directories         : {{ f09_le_certs.stdout_lines | default([]) | join(', ') }}
+            OPAC cert SAN's          : {{ f09_opac_sans.stdout | default('?') }}
+            OPAC cert vervalt        : {{ f09_opac_expiry.stdout | default('?') | trim }}
+            apache vhosts enabled    : {{ f09_vhosts.stdout_lines | default([]) | join(', ') }}
+
+          [10-flask-isbn]  scan-app
+            flask-isbn service       : {{ f10_flask_active.stdout | default('?') }} / {{ f10_flask_enabled.stdout | default('?') }}
+            poort 5000 (gunicorn)    : {{ f10_port5000.stdout_lines | default(['<niets>']) | join(' | ') }}
+            staging perms            :
+              {{ f10_staging_perms.stdout_lines | default([]) | join('\n          ') }}
+            htpasswd file            : {{ 'JA' if f10_htpasswd.stat.exists else 'NEE' }}
+            scan cert vervalt        : {{ f10_scan_cert.stdout | default('?') | trim or 'ONTBREEKT' }}
+
+          [11-koha-import]  import-pipeline
+            koha-common active       : {{ f11_koha_common.stdout | default('?') }}
+            koha-zebra status        : {{ f11_zebra_status.stdout | default('?') | trim }}
+            ISBN matcher in DB       : {{ f11_matcher.stdout | default('GEEN MATCHER') | trim }}
+            runner script            : {{ 'JA' if f11_runner_script.stat.exists else 'NEE' }}
+            path-unit                : {{ f11_path_active.stdout | default('?') }} / {{ f11_path_enabled.stdout | default('?') }}
+            staging files            : pending={{ f11_staging_files.stdout_lines[0] | default('?') }} failed={{ f11_staging_files.stdout_lines[1] | default('?') }}
+            laatste import-log:
+              {{ f11_import_log.stdout_lines | default(['<leeg>']) | join('\n          ') }}
+
+          [12-ssh-hardening]
+            10-hardening.conf        : {{ 'JA' if f12_sshd_dropin.stat.exists else 'NEE' }}
+            effectieve config:
+              {{ f12_sshd_effective.stdout_lines | default([]) | join('\n          ') }}
+
+          [backup] (nog geen role gedeployed)
+            backup script            : {{ 'JA' if fb_backup_script.stat.exists else 'NEE' }}
+            rclone                   : {{ fb_rclone.stdout | default('NIET GEÏNSTALLEERD') if fb_rclone.rc == 0 else 'NIET GEÏNSTALLEERD' }}
+            cron-entries             : {{ fb_cron.stdout_lines | default(['<geen>']) | join(' | ') if fb_cron.stdout | default('') | trim else '<geen>' }}
+          ════════════════════════════════════════════════════════════════
