@@ -9,6 +9,7 @@
   </p>
 
   <form method="post" action="{{ url_for('select') }}" id="compareForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="isbn" value="{{ isbn }}">
 
     <div class="source-grid">

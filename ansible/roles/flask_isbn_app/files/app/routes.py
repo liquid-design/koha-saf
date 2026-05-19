@@ -11,16 +11,27 @@ Flow:
   GET  /manual?isbn=...   Leeg invulformulier (bij 0 hits of na knop-klik)
   POST /save              Schrijf MARCXML naar staging dir
 
-Alle session-state gaat via verborgen form-fields. Geen Flask session nodig.
+Alle session-state gaat via verborgen form-fields. Geen Flask session nodig
+voor data; sessie-cookie is alleen voor flash messages en CSRF token.
+
+Security:
+- /lookup en /select trekken externe SRU-bronnen aan -> 30/min per IP
+- /save schrijft naar disk -> 10/min per IP
+- ISBN en barcode worden strikt gevalideerd (regex) voor we ze in
+  filenames of MARC velden zetten
+- description wordt unicode-genormaliseerd en gelimiteerd op lengte
+- CSRF tokens via Flask-WTF (zie __init__.py)
 """
 
 import os
-import json
+import re
+import unicodedata
 from flask import (
     current_app as app, render_template, request, flash,
-    redirect, url_for, abort,
+    redirect, url_for,
 )
 
+from . import limiter
 from .sources import lookup_all, get_hits
 from .sources.base import BookRecord
 from .merger import merge_records, find_record
@@ -31,6 +42,59 @@ from .categories import CATEGORIES, split_category_value
 # Staging dir waar Flask in mag schrijven. Cron leest hier uit.
 UPLOAD_DIR = os.environ.get("KOHA_UPLOAD_DIR", "/var/lib/koha-staging")
 
+# ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
+# ISBN: 10 of 13 cijfers, eventueel met X als 10e karakter (ISBN-10 checksum).
+# We strippen al streepjes en spaties voor we matchen.
+_ISBN_RE = re.compile(r"^(?:\d{9}[\dXx]|\d{13})$")
+
+# Barcode: alleen alfanumeriek + _ en -, max 32 chars. Voldoende voor SAF-formaat
+# 'SAF000001' en houdt path-traversal of MARC-injection volledig dicht.
+_BARCODE_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+# Max lengtes voor vrije tekst-velden om absurde payloads te blokkeren.
+# Echte bibliografische data zit ruim onder deze limieten.
+_MAX_TITLE = 500
+_MAX_SUBTITLE = 500
+_MAX_AUTHORS = 1000        # joined string, niet per auteur
+_MAX_PUBLISHERS = 500
+_MAX_PLACE = 200
+_MAX_DATE = 20
+_MAX_LANG = 10
+_MAX_DESCRIPTION = 10000   # flapteksten kunnen lang zijn, maar niet absurd
+
+
+def _clean_text(value: str, max_len: int) -> str | None:
+    """
+    Normaliseer en limiteer een vrije-tekst veld.
+
+    - NFC unicode normalisatie (zelfde karakter = zelfde bytes)
+    - NULL bytes weghalen (kunnen Zebra indexer ontregelen)
+    - Control characters weghalen behalve tab/newline
+    - Truncaten op max_len
+    - Lege string -> None
+
+    Returnt None voor lege input zodat de MARC builder dat veld overslaat.
+    """
+    if not value:
+        return None
+    text = unicodedata.normalize("NFC", value)
+    # Strip NULL bytes en andere control chars (behoud \t \n \r)
+    text = "".join(
+        c for c in text
+        if c in ("\t", "\n", "\r") or unicodedata.category(c)[0] != "C"
+    )
+    text = text.strip()
+    if not text:
+        return None
+    return text[:max_len]
+
+
+def _normalize_isbn(raw: str) -> str:
+    """Strip streepjes en spaties van een ISBN-string."""
+    return raw.strip().replace("-", "").replace(" ", "")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,20 +104,30 @@ def _bookrecord_from_form(form) -> BookRecord:
     Reconstrueer een BookRecord uit form-data van confirm.html.
 
     We vertrouwen geen verborgen form-fields blind: alle data wordt
-    expliciet uit losse fields gehaald, niet uit een JSON-blob.
+    expliciet uit losse fields gehaald, niet uit een JSON-blob. Alle
+    tekstvelden gaan door _clean_text voor unicode normalisatie en
+    lengte-limitering.
     """
     return BookRecord(
-        isbn=form.get("isbn", "").strip(),
-        source=form.get("source", "manueel"),
-        title=form.get("title", "").strip() or None,
-        subtitle=form.get("subtitle", "").strip() or None,
-        authors=[a.strip() for a in form.get("authors", "").split(";") if a.strip()],
-        publishers=[p.strip() for p in form.get("publishers", "").split(";") if p.strip()],
-        publish_place=form.get("publish_place", "").strip() or None,
-        publish_date=form.get("publish_date", "").strip() or None,
-        language=form.get("language", "").strip() or None,
+        isbn=_normalize_isbn(form.get("isbn", "")),
+        source=_clean_text(form.get("source", "manueel"), 100) or "manueel",
+        title=_clean_text(form.get("title", ""), _MAX_TITLE),
+        subtitle=_clean_text(form.get("subtitle", ""), _MAX_SUBTITLE),
+        authors=[
+            a.strip()
+            for a in (_clean_text(form.get("authors", ""), _MAX_AUTHORS) or "").split(";")
+            if a.strip()
+        ],
+        publishers=[
+            p.strip()
+            for p in (_clean_text(form.get("publishers", ""), _MAX_PUBLISHERS) or "").split(";")
+            if p.strip()
+        ],
+        publish_place=_clean_text(form.get("publish_place", ""), _MAX_PLACE),
+        publish_date=_clean_text(form.get("publish_date", ""), _MAX_DATE),
+        language=_clean_text(form.get("language", ""), _MAX_LANG),
         pagecount=int(form["pagecount"]) if form.get("pagecount", "").isdigit() else None,
-        description=form.get("description", "").strip() or None,
+        description=_clean_text(form.get("description", ""), _MAX_DESCRIPTION),
         found=True,
     )
 
@@ -68,11 +142,16 @@ def index():
 
 
 @app.route("/lookup", methods=["POST"])
+@limiter.limit("30 per minute")
 def lookup():
     """Stap 1: ISBN bij alle bronnen opzoeken."""
-    isbn = request.form.get("isbn", "").strip().replace("-", "").replace(" ", "")
+    isbn = _normalize_isbn(request.form.get("isbn", ""))
     if not isbn:
         flash("Geef een ISBN op.", "error")
+        return redirect(url_for("index"))
+
+    if not _ISBN_RE.match(isbn):
+        flash("Ongeldig ISBN (verwacht 10 of 13 cijfers).", "error")
         return redirect(url_for("index"))
 
     records = lookup_all(isbn)
@@ -105,6 +184,7 @@ def lookup():
 
 
 @app.route("/select", methods=["POST"])
+@limiter.limit("30 per minute")
 def select():
     """
     Stap 2a: gebruiker heeft 1 of 2 bronnen geselecteerd in compare.html.
@@ -113,16 +193,15 @@ def select():
       isbn
       selected: list van source-namen (max 2)
     """
-    isbn = request.form.get("isbn", "").strip()
+    isbn = _normalize_isbn(request.form.get("isbn", ""))
     selected = request.form.getlist("selected")
 
-    if not isbn:
-        flash("ISBN ontbreekt.", "error")
+    if not isbn or not _ISBN_RE.match(isbn):
+        flash("Ongeldig of ontbrekend ISBN.", "error")
         return redirect(url_for("index"))
 
     if len(selected) == 0:
         flash("Selecteer minstens één bron.", "error")
-        # Bron opnieuw bevragen — eenvoudiger dan state bewaren
         return lookup()
 
     if len(selected) > 2:
@@ -152,12 +231,12 @@ def select():
 def manual():
     """Leeg invulformulier voor titels die in geen enkele bron staan."""
     if request.method == "GET":
-        isbn = request.args.get("isbn", "").strip()
+        isbn = _normalize_isbn(request.args.get("isbn", ""))
     else:
-        isbn = request.form.get("isbn", "").strip()
+        isbn = _normalize_isbn(request.form.get("isbn", ""))
 
-    if not isbn:
-        flash("ISBN ontbreekt.", "error")
+    if not isbn or not _ISBN_RE.match(isbn):
+        flash("Ongeldig of ontbrekend ISBN.", "error")
         return redirect(url_for("index"))
 
     # Lege BookRecord als template-input
@@ -173,15 +252,42 @@ def manual():
 
 
 @app.route("/save", methods=["POST"])
+@limiter.limit("10 per minute")
 def save():
     """Stap 3: barcode + (eventueel aangepaste) data -> MARCXML schrijven."""
-    isbn = request.form.get("isbn", "").strip()
+    isbn = _normalize_isbn(request.form.get("isbn", ""))
     barcode = request.form.get("barcode", "").strip()
     category_value = request.form.get("category", "").strip()
 
-    if not isbn or not barcode:
-        flash("ISBN en barcode zijn verplicht.", "error")
+    # ISBN validatie
+    if not isbn:
+        flash("ISBN ontbreekt.", "error")
         return redirect(url_for("index"))
+    if not _ISBN_RE.match(isbn):
+        flash("Ongeldig ISBN (verwacht 10 of 13 cijfers).", "error")
+        return redirect(url_for("index"))
+
+    # Barcode validatie: strikt — wordt zowel in filename als MARC 952$p gebruikt
+    if not barcode:
+        flash("Barcode is verplicht.", "error")
+        return redirect(url_for("index"))
+    if not _BARCODE_RE.match(barcode):
+        flash(
+            "Ongeldige barcode (alleen letters, cijfers, _ en -, max 32 tekens).",
+            "error",
+        )
+        # Bouw record uit form om de UI niet leeg te laten
+        book = _bookrecord_from_form(request.form)
+        return render_template(
+            "confirm.html", isbn=isbn, book=book, categories=CATEGORIES,
+        )
+
+    # Category validatie: moet uit onze eigen lijst komen, anders weiger
+    if category_value:
+        allowed_values = {v for _, v in CATEGORIES}
+        if category_value not in allowed_values:
+            flash("Ongeldige categorie-waarde.", "error")
+            return redirect(url_for("index"))
 
     # Bouw BookRecord uit de form-velden (gebruiker mocht editen)
     book = _bookrecord_from_form(request.form)

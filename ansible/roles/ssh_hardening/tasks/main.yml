@@ -1,0 +1,46 @@
+# ============================================================================
+# ROLE: ssh_hardening
+# ----------------------------------------------------------------------------
+# Verantwoordelijkheid:
+# SSH config dichttimmeren: geen password auth, geen root password login,
+# alleen key-based authentication. Zet config in /etc/ssh/sshd_config.d/
+# zodat we de upstream sshd_config niet aanraken (Debian/Ubuntu pattern).
+#
+# Doet wel:
+# - PasswordAuthentication no
+# - PermitRootLogin prohibit-password (key-based mag, password niet)
+# - ChallengeResponseAuthentication no
+# - KbdInteractiveAuthentication no
+# - PubkeyAuthentication yes (expliciet)
+#
+# Doet niet:
+# - Aanmaken van users of keys (zie system_hardening_users)
+# - Firewall (DigitalOcean firewall via Terraform)
+# - fail2ban (apart te installeren indien gewenst)
+#
+# VEILIGHEID:
+# - Validatie via `sshd -t` voor reload, zodat een typo de server niet
+#   onbereikbaar maakt
+# - Handler doet reload (geen restart) zodat actieve sessies overleven
+# ============================================================================
+
+- name: Deploy SSH hardening config
+  copy:
+    content: |
+      # Managed by Ansible (ssh_hardening role) — niet handmatig editen.
+      # Wijzigingen via roles/ssh_hardening/tasks/main.yml
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      ChallengeResponseAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      # Hou key-only logins netjes
+      PermitEmptyPasswords no
+      # MaxAuthTries: lager om brute-force pogingen sneller te droppen
+      MaxAuthTries 4
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: reload sshd

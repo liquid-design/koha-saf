@@ -20,6 +20,14 @@ flask_staging_dir: /var/lib/koha-staging
 flask_bind: "127.0.0.1:5000"
 flask_workers: 2
 
+# Basic Auth: htpasswd file owned by root, leesbaar door www-data.
+# Inhoud komt uit vault (zie inventory/group_vars/all/vault.yml):
+#   vault_flask_htpasswd_user: saf
+#   vault_flask_htpasswd_hash: "<bcrypt hash van htpasswd -nbB saf '<pw>'>"
+flask_htpasswd_path: /etc/apache2/scan-htpasswd
+flask_htpasswd_user: "{{ vault_flask_htpasswd_user }}"
+flask_htpasswd_hash: "{{ vault_flask_htpasswd_hash }}"
+
 # scan_domain wordt in group_vars/{test,prod}.yml gezet:
 #   test: scan_domain: scan-test.marxisme.be
 #   prod: scan_domain: scan.marxisme.be
