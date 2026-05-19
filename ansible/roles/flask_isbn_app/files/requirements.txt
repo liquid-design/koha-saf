@@ -16,7 +16,7 @@ ordered-set==4.1.0
 Pygments==2.19.2
 pymarc==5.3.1
 requests==2.32.5
-rich==14.2.0
+rich==13.9.4
 typing_extensions==4.12.2
 urllib3==2.5.0
 Werkzeug==3.1.3
